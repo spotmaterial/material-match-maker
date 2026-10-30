@@ -1,8 +1,8 @@
-node_modules/
-package*.json
-src/
-baked/
-out2/
 __pycache__/
+baked/
 comp/
 contact*.jpg
+node_modules/
+out2/
+package*.json
+src/
