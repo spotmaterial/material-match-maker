@@ -151,6 +151,14 @@
   .skipall { display: block; margin: 16px auto 0; background: none; border: 0; font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; color: var(--ink); }
   .understood { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
   .understood span { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #e3f2ea; color: #17643f; margin: 4px 4px 0 0; }
+  #looksStep { padding: 6px 18px 24px; overflow-y: auto; }
+  .looks-h { font-size: 24px; letter-spacing: -.02em; margin: 16px 0 4px; line-height: 1.15; }
+  .looks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .look { position: relative; background: #fff; border: 1.5px solid var(--line); border-radius: 14px; padding: 6px 6px 8px; cursor: pointer; text-align: center; font: inherit; color: var(--ink); }
+  .look img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; border-radius: 10px; }
+  .look span { display: block; font-size: 12px; line-height: 1.2; margin-top: 4px; min-height: 2.4em; }
+  .look[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+  .look[aria-pressed="true"]::after { content: '✓'; position: absolute; top: 8px; right: 10px; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 13px; line-height: 22px; }
   .spinner { color: var(--muted); padding: 30px 0; text-align: center; }
 
 </style>
@@ -172,6 +180,15 @@
     <div class="examples" id="examples"></div>
     <button class="go" id="next1">Next</button>
     <a class="small-link" href="classic.html">Prefer tick boxes? Try the earlier version</a>
+  </section>
+
+  <!-- 1b. Looks -->
+  <section id="looksStep" hidden>
+    <div class="qline"><span>“<b id="qText2"></b>”</span><button id="editWords2">Change</button></div>
+    <h2 class="looks-h">Which of these is closest?</h2>
+    <div class="qhint">Pick any that could work. These are general looks, not specific materials.</div>
+    <div class="looks" id="looksGrid"><div class="spinner">Finding looks…</div></div>
+    <div class="qbtns"><button class="alt" id="looksSkip">Not sure, skip</button><button class="go" id="looksNext" disabled style="opacity:.4">Next</button></div>
   </section>
 
   <!-- 2. Questions -->
@@ -242,13 +259,14 @@ let answers = store.get('answers', {});      // vocabulary -> [labels]
 let answerText = store.get('answerText', []); // plain words for the brief line
 let asked = store.get('asked', []);
 let understood = store.get('understood', []);
+let lookLabels = store.get('lookLabels', []);
 let liked = store.get('liked', []), passed = store.get('passed', []), seen = store.get('seen', []);
 let momentShown = store.get('moment', false);
 let queue = [], loading = false, exhausted = false;
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const save = () => { for (const [k, v] of Object.entries({ q, understood, answers, answerText, asked, liked, passed, seen, moment: momentShown })) store.set(k, v); };
+const save = () => { for (const [k, v] of Object.entries({ q, understood, lookLabels, answers, answerText, asked, liked, passed, seen, moment: momentShown })) store.set(k, v); };
 const likedCodes = () => liked.map(l => l.code);
 
 // ---------- api ----------
@@ -275,11 +293,32 @@ function startWords() {
   const v = $('#q').value.trim();
   if (!v) { $('#q').focus(); return; }
   if (v !== q) { liked = []; passed = []; seen = []; momentShown = false; }
-  q = v; answers = {}; answerText = []; asked = []; queue = []; exhausted = false; save();
-  show('ask'); nextQuestion();
+  q = v; answers = {}; answerText = []; asked = []; lookLabels = []; queue = []; exhausted = false; save();
+  showLooks();
 }
 $('#next1').onclick = startWords;
 $('#qform').onsubmit = e => { e.preventDefault(); startWords(); };
+
+// ---------- 1b. looks ----------
+async function showLooks() {
+  show('looksStep'); $('#qText2').textContent = q;
+  $('#looksGrid').innerHTML = '<div class="spinner">Finding looks…</div>';
+  let looks = [];
+  try { looks = await match('looks', {}); } catch (e) { looks = []; }
+  if (!looks.length) { show('ask'); nextQuestion(); return; }
+  $('#looksGrid').innerHTML = looks.map(l => `<button class="look" aria-pressed="false" data-s="${esc(l.slug)}" data-l="${esc(l.label)}">
+      <img src="looks/${esc(l.image)}.jpg" alt=""><span>${esc(l.label)}</span></button>`).join('');
+  const next = $('#looksNext');
+  const sel = () => [...document.querySelectorAll('#looksGrid .look[aria-pressed="true"]')];
+  document.querySelectorAll('#looksGrid .look').forEach(b => b.onclick = () => {
+    b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true');
+    const n = sel().length; next.disabled = !n; next.style.opacity = n ? 1 : .4;
+  });
+  next.onclick = () => { const s = sel(); if (!s.length) return;
+    answers.look = s.map(b => b.dataset.s); lookLabels = s.map(b => b.dataset.l); save(); show('ask'); nextQuestion(); };
+  $('#looksSkip').onclick = () => { delete answers.look; lookLabels = []; save(); show('ask'); nextQuestion(); };
+}
+$('#editWords2').onclick = () => { $('#q').value = q; show('words'); };
 
 // ---------- 2. questions ----------
 async function nextQuestion() {
@@ -299,10 +338,11 @@ async function nextQuestion() {
     $('#undo').onclick = undoLast; return;
   }
   const qq = d.question;
-  if (!qq || asked.length >= MAX_QUESTIONS) { startDeck(true); return; }
+  const maxQ = answers.look ? MAX_QUESTIONS - 1 : MAX_QUESTIONS;
+  if (!qq || asked.length >= maxQ) { startDeck(true); return; }
   const avoid = qq.mode === 'avoid';
   $('#qArea').innerHTML = `
-    <div class="qnum">Question ${asked.length + 1} of up to ${MAX_QUESTIONS}</div>
+    <div class="qnum">Question ${asked.length + 1} of up to ${answers.look ? MAX_QUESTIONS - 1 : MAX_QUESTIONS}</div>
     <h2>${esc(qq.text)}</h2>
     <div class="qhint">${esc(qq.hint || 'Pick one or more')}</div>
     <div id="opts">${qq.options.map(o => `<button class="opt${avoid ? ' avoid' : ''}" aria-pressed="false" data-l="${esc(o.label)}" data-p="${esc(o.plain)}">
@@ -530,7 +570,7 @@ function openSheet(r) {
 
 // ---------- navigation ----------
 function show(id) {
-  ['words', 'ask', 'deckView', 'results'].forEach(s => $('#' + s).hidden = s !== id);
+  ['words', 'looksStep', 'ask', 'deckView', 'results'].forEach(s => $('#' + s).hidden = s !== id);
   const t = $('#topBtn');
   t.hidden = !(id === 'deckView' || id === 'results') ;
   t.textContent = id === 'results' ? 'Back to deck' : 'Matches';
@@ -538,7 +578,7 @@ function show(id) {
 }
 function startDeck(reset) {
   if (reset) { queue = []; exhausted = false; }
-  $('#briefText').textContent = [`“${q}”`, ...understood.map(u => u.toLowerCase()), ...answerText].filter((x, i, a) => a.indexOf(x) === i).join(' · ');
+  $('#briefText').textContent = [`“${q}”`, ...lookLabels.map(l => l.toLowerCase()), ...understood.map(u => u.toLowerCase()), ...answerText].filter((x, i, a) => a.indexOf(x) === i).join(' · ');
   show('deckView'); updateMeter(); save(); render();
   if (queue.length < 3) fill();
 }
