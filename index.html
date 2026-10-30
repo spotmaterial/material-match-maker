@@ -149,6 +149,8 @@
   .qbtns .go { margin: 0; }
   .qbtns .alt { padding: 15px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); font: inherit; font-weight: 600; cursor: pointer; color: var(--ink); }
   .skipall { display: block; margin: 16px auto 0; background: none; border: 0; font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; color: var(--ink); }
+  .understood { font-size: 13px; color: var(--muted); margin: 4px 0 0; }
+  .understood span { display: inline-block; font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #e3f2ea; color: #17643f; margin: 4px 4px 0 0; }
   .spinner { color: var(--muted); padding: 30px 0; text-align: center; }
 
 </style>
@@ -176,6 +178,7 @@
   <section id="ask" hidden>
     <div class="qline"><span>“<b id="qText"></b>”</span><button id="editWords">Change</button></div>
     <div class="fitbox"><div class="thumbs4" id="thumbs"></div><span><b id="fitCount">…</b> materials fit so far</span></div>
+    <div class="understood" id="understood" hidden></div>
     <div id="qArea"><div class="spinner">Looking through the materials…</div></div>
   </section>
 
@@ -238,13 +241,14 @@ let q = store.get('q', '');
 let answers = store.get('answers', {});      // vocabulary -> [labels]
 let answerText = store.get('answerText', []); // plain words for the brief line
 let asked = store.get('asked', []);
+let understood = store.get('understood', []);
 let liked = store.get('liked', []), passed = store.get('passed', []), seen = store.get('seen', []);
 let momentShown = store.get('moment', false);
 let queue = [], loading = false, exhausted = false;
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const save = () => { for (const [k, v] of Object.entries({ q, answers, answerText, asked, liked, passed, seen, moment: momentShown })) store.set(k, v); };
+const save = () => { for (const [k, v] of Object.entries({ q, understood, answers, answerText, asked, liked, passed, seen, moment: momentShown })) store.set(k, v); };
 const likedCodes = () => liked.map(l => l.code);
 
 // ---------- api ----------
@@ -285,6 +289,10 @@ async function nextQuestion() {
   try { d = await match('question', { asked }); }
   catch (e) { $('#qArea').innerHTML = `<p class="err">Couldn't reach the materials. ${esc(e.message.slice(0, 100))}</p>`; return; }
   $('#fitCount').textContent = d.count >= 150 ? '150+' : d.count;
+  const und = d.understood || [];
+  $('#understood').hidden = !und.length;
+  $('#understood').innerHTML = 'From your words: ' + und.map(u => `<span>✓ ${esc(u)}</span>`).join('');
+  understood = und;
   $('#thumbs').innerHTML = (d.preview || []).map(p => `<i style="background-image:url('${IMG(p)}')"></i>`).join('');
   if (!d.count) {
     $('#qArea').innerHTML = `<p class="note" style="margin-top:20px">Nothing fits all of that. </p><button class="alt pill" id="undo">Undo last answer</button>`;
@@ -530,7 +538,7 @@ function show(id) {
 }
 function startDeck(reset) {
   if (reset) { queue = []; exhausted = false; }
-  $('#briefText').textContent = [`“${q}”`, ...answerText].join(' · ');
+  $('#briefText').textContent = [`“${q}”`, ...understood.map(u => u.toLowerCase()), ...answerText].filter((x, i, a) => a.indexOf(x) === i).join(' · ');
   show('deckView'); updateMeter(); save(); render();
   if (queue.length < 3) fill();
 }
