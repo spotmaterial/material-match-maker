@@ -477,7 +477,7 @@ async function showResults() {
   if (!liked.length) { $('#listInn').innerHTML = $('#listStd').innerHTML = '<p class="note">Swipe right on a few materials that would suit your design first.</p>'; return; }
   $('#listInn').innerHTML = $('#listStd').innerHTML = '<p class="note">Finding your matches…</p>';
   try {
-    const rows = await match('suggest', { liked: likedCodes(), passed, seen, limit: 6 });
+    const rows = await match('suggest', { liked: likedCodes(), passed, seen, limit: 8 });
     const card = (r, i) => `<div class="s" data-i="${i}">
         <div class="im" style="background-image:url('${IMG(r.image_path)}')"></div>
         <div class="t"><b>${esc(r.name)}</b><small>${esc(r.subtitle)}</small>
