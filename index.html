@@ -57,7 +57,10 @@
   .grp ul { list-style: none; margin: 0; padding: 0 12px 10px 88px; }
   .grp li { font-size: 14px; padding: 4px 0; border-top: 1px solid #f0eee9; }
   .grp li small { color: var(--muted); }
-  .inn { list-style: none; margin: 0; padding: 0; }
+  .inn { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .inn li { overflow: hidden; padding: 0 !important; margin: 0 !important; }
+  .inn .ph { aspect-ratio: 4 / 3; background: #eee center / cover no-repeat; }
+  .inn .tx { padding: 9px 11px 11px; }
   .inn li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
   .inn b { display: block; font-size: 15px; }
   .inn small { color: var(--muted); display: block; margin: 1px 0 4px; }
@@ -77,7 +80,7 @@
     <button class="go" id="start">Start</button>
     <div class="sample"><b>Draft spheres:</b> each material family (and form, e.g. felt, film, foam) has its own sphere. All spheres now have draft studio renders; similar materials share one.</div>
     <p class="note" style="margin-top:12px">Earlier versions: <a href="photos.html">with photos and questions</a> · <a href="classic.html">tick boxes</a></p>
-    <p class="note">Version: 8 swipes, innovations first · 30 Oct 19:00</p>
+    <p class="note">Version: innovation images, similar grades · 30 Oct 19:30</p>
   </section>
 
   <section id="deckView" hidden>
@@ -98,13 +101,16 @@
     <ul class="inn" id="inns"></ul>
     <h3>Standard grades <small>· from the spheres you chose</small></h3>
     <div id="grades"></div>
+    <h3 id="simHead">Similar standard grades <small>· from spheres you didn't swipe away</small></h3>
+    <div id="similar"></div>
     <div class="row"><button class="pill" id="again">Keep swiping</button><button class="pill" id="restart">New search</button></div>
-    <p class="note" style="margin-top:16px">Prototype. Spheres show the material only (generated, not product photos). Innovations are listed without images.</p>
+    <p class="note" style="margin-top:16px">Prototype. Spheres show the material only (generated, not product photos). Innovation images © the companies named.</p>
   </section>
 </main>
 <script>
 const SUPABASE = 'https://bjkkqawalpuvsubnbodt.supabase.co';
 const KEY = 'sb_publishable_ZZN2JFwNHFbBLLjh2DE3cg_4t1YvQ7m';
+const IMG = (p) => `${SUPABASE}/storage/v1/object/public/images/${p}`;
 const SPHERE = (img) => String(img || '').includes('/') ? img : `spheres/${img}.jpg`;
 const ROUND = 8;   // cards per round of swiping, then straight to results (Rob 30 Oct: swiping went on too long)
 const EXAMPLES = ['acoustic panels for a studio', 'soft fabric for a café chair', 'durable floor for a shop', 'lightweight frame for outdoor furniture', 'natural tabletop'];
@@ -175,17 +181,19 @@ $('#restart').onclick = () => { $('#q').value = ''; show('words'); };
 
 async function showResults() {
   show('results'); $('#sub').textContent = `“${q}” · ${liked.length} chosen`;
-  $('#grades').innerHTML = $('#inns').innerHTML = '<div class="spinner">Finding…</div>';
+  $('#grades').innerHTML = $('#similar').innerHTML = $('#inns').innerHTML = '<div class="spinner">Finding…</div>';
   try {
     const rows = await match('sphere_results', { liked, passed, limit: 30 });
-    const groups = new Map();
-    rows.filter((r) => r.kind === 'grade').forEach((r) => { if (!groups.has(r.sphere)) groups.set(r.sphere, []); groups.get(r.sphere).push(r); });
     const labels = Object.fromEntries((window._labels || []).map((x) => [x.key, x.label]));
-    $('#grades').innerHTML = [...groups.entries()].map(([k, list]) => `<div class="grp"><div class="grp-head"><img src="${SPHERE(list[0].image || k)}" alt=""><b>${esc(labels[k] || list[0].subtitle)}</b></div>
-      <ul>${list.slice(0, 8).map((r) => `<li>${esc(r.subtitle)} · ${esc(r.name)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join('') || '<p class="note">Swipe right on a sphere to see its standard grades here.</p>';
+    const groupHtml = (kind) => { const groups = new Map();
+      rows.filter((r) => r.kind === kind).forEach((r) => { if (!groups.has(r.sphere)) groups.set(r.sphere, []); groups.get(r.sphere).push(r); });
+      return [...groups.entries()].map(([k, list]) => `<div class="grp"><div class="grp-head"><img src="${SPHERE(list[0].image || k)}" alt=""><b>${esc(labels[k] || list[0].subtitle)}</b></div>
+        <ul>${list.slice(0, 8).map((r) => `<li>${esc(r.subtitle)} · ${esc(r.name)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join(''); };
+    $('#grades').innerHTML = groupHtml('grade') || '<p class="note">Swipe right on a sphere to see its standard grades here.</p>';
+    const sim = groupHtml('grade_similar'); $('#similar').innerHTML = sim; $('#simHead').hidden = !sim;
     const strip = (t) => String(t || '').replace(/\s*Images?\s+[^.]{2,80}\.?\s*$/i, '');
     const first = (t) => { t = strip(t); const i = t.indexOf('. '); return i > 40 && i < 220 ? t.slice(0, i + 1) : t.slice(0, 200) + (t.length > 200 ? '…' : ''); };
-    $('#inns').innerHTML = rows.filter((r) => r.kind === 'innovation').map((r) => `<li><b>${esc(r.name)}</b><small>${esc(r.subtitle)}</small><p>${esc(first(r.summary))}</p></li>`).join('');
+    $('#inns').innerHTML = rows.filter((r) => r.kind === 'innovation').map((r) => `<li>${r.image ? `<div class="ph" style="background-image:url('${IMG(r.image)}')" role="img" aria-label="${esc(r.name)}, image ${esc(r.subtitle)}"></div>` : ''}<div class="tx"><b>${esc(r.name)}</b><small>${esc(r.subtitle)}</small><p>${esc(first(r.summary))}</p></div></li>`).join('');
   } catch (e) { $('#grades').innerHTML = `<p class="note">Couldn't load: ${esc(e.message)}</p>`; $('#inns').innerHTML = ''; }
 }
 window._labels = [];
