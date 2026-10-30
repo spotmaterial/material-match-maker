@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Material spheres v2</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+// Photographic-style material spheres: soft daylight from the left, sphere resting on a white
+// surface, soft shadow to the right (modelled on Rob's oak reference). Surfaces come from
+// triplanar-baked texture maps in baked/<slug>/ (color.jpg, rough.jpg, height.jpg, metal.jpg).
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const W = 900, H = 900;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.setClearColor(0x000000, 0);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+const env = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+scene.environment = env;
+
+const camera = new THREE.PerspectiveCamera(24, W / H, 0.1, 100);
+camera.position.set(0, 0.55, 7.2); camera.lookAt(0, 0.05, 0);
+
+// soft window light from the upper left
+const key = new THREE.DirectionalLight('#fffaf2', 2.0);
+key.position.set(-5, 4.2, 3.5); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 34; key.shadow.blurSamples = 40;
+Object.assign(key.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 20 });
+scene.add(key);
+const fill = new THREE.DirectionalLight('#eef3ff', 0.35); fill.position.set(4, 1.5, 4); scene.add(fill);
+
+// floor that only shows shadows, plus a soft contact shadow under the sphere
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.ShadowMaterial({ opacity: 0.15 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -1.0; floor.receiveShadow = true; scene.add(floor);
+const cc = document.createElement('canvas'); cc.width = cc.height = 256;
+{ const g = cc.getContext('2d'), r = g.createRadialGradient(128,128,0,128,128,128); r.addColorStop(0,'rgba(0,0,0,0.55)'); r.addColorStop(0.35,'rgba(0,0,0,0.18)'); r.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0,0,256,256); }
+const contact = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cc), transparent: true, depthWrite: false }));
+contact.rotation.x = -Math.PI / 2; contact.position.set(0.12, -0.995, 0.05); scene.add(contact);
+
+const geo = new THREE.SphereGeometry(1, 256, 160);
+let mesh = null;
+const loader = new THREE.TextureLoader();
+const load = (url, srgb) => new Promise((res) => loader.load(url, (t) => { t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; res(t); }, undefined, () => res(null)));
+
+// p: { roughness, metalness, bumpScale, clearcoat, clearcoatRoughness, sheen, sheenColor, sheenRoughness,
+//      transmission, thickness, ior, color, tint, rotY, envIntensity }
+window.renderSphere = async (slug, p = {}) => {
+  if (mesh) { scene.remove(mesh); mesh.material.dispose(); }
+  const base = `baked/${slug}/`;
+  const [map, rough, height, metal] = await Promise.all([load(base + 'color.jpg', true), load(base + 'rough.jpg'), load(base + 'height.jpg'), load(base + 'metal.jpg')]);
+  const m = new THREE.MeshPhysicalMaterial({
+    color: p.color || '#ffffff', map, roughnessMap: rough, metalnessMap: metal, bumpMap: height,
+    bumpScale: p.bumpScale ?? 1.5, roughness: p.roughness ?? 1, metalness: p.metalness ?? (metal ? 1 : 0),
+    clearcoat: p.clearcoat ?? 0, clearcoatRoughness: p.clearcoatRoughness ?? 0.2,
+    sheen: p.sheen ?? 0, sheenRoughness: p.sheenRoughness ?? 0.5, sheenColor: new THREE.Color(p.sheenColor || '#ffffff'),
+    transmission: p.transmission ?? 0, thickness: p.thickness ?? 0, ior: p.ior ?? 1.5,
+    envMapIntensity: p.envIntensity ?? 1,
+  });
+  if (p.attenuationColor) { m.attenuationColor = new THREE.Color(p.attenuationColor); m.attenuationDistance = p.attenuationDistance ?? 1; }
+  mesh = new THREE.Mesh(geo, m); mesh.castShadow = true; mesh.rotation.y = p.rotY ?? 0.4; mesh.rotation.x = p.rotX ?? 0.15;
+  scene.add(mesh);
+  renderer.render(scene, camera);
+  return renderer.domElement.toDataURL('image/png');
+};
+window.ready = true;
+</script></body></html>
