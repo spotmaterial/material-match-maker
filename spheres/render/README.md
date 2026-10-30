@@ -14,3 +14,9 @@ ambientcg.com / polyhaven were blocked, so the colour + normal maps of ambientCG
 - `plastic.py`: grey sphere, polished left half / matte right half (Rob: all solid plastics). `split.py <key> <roughness>`: same split for metals (aluminium, stainless; copper / gold / silver are aluminium-split with a colour). Render split spheres with rotY = rotX = 0.
 - render2.html: `env: 'studio'` (glass), `'soft'` (polished metal), `backdrop` (glass refracts an in-scene backdrop); `glass_merge.py` puts the glass ball back on the standard backdrop.
 - Which spheres use which image: Supabase table `match_sphere_images` (applied by `match_build_spheres()`).
+
+## Hanging swatches (30 Oct, replaces the spheres; same file names in spheres/*.jpg)
+Rob: squares hanging from one corner in a white space, no visible wire; rigid materials hang flat and show their thickness, soft ones drape.
+- `swatch.html` + `runsw.js`: ~20 cm square hung from one corner. Rigid = box with thickness (mm), turned to show the edge (plywood shows ply lines). Soft = Verlet cloth hung from the corner; `stiff` (bending), `shape` (pull back to flat, for felts/leathers/foams), `sag`. Uses the flat maps in `src/<key>/` (prep.py; `gen_flat.py` for generated ones), tiled to real scale (`tiles` as for the spheres). `backdrop` + `glass_merge.py <out> outsw` for clear/translucent; `opacity` for film.
+- `gen_flat.py`: tileable plain / beads / cells maps, and `split` (whole-swatch gloss/matte split along the diagonal = vertical on the hanging diamond) for plastics and metals.
+- `swatch_all.py [key…]`: table of form per image (rigid + thickness, or soft + stiffness), renders outsw/ → comp/sw-<key>.jpg; copy to ../<key>.jpg.

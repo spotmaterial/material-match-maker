@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Material swatches</title>
+<style>html,body{margin:0;background:transparent}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+// Hanging material swatches (Rob, 30 Oct): a ~20 cm square hanging from its two top corners on fine
+// threads in a white space. Rigid materials hang flat and show their thickness; soft ones drape.
+// The drape comes from a small cloth simulation (Verlet particles + distance constraints) whose
+// bending stiffness is set per material. Surfaces use the flat texture maps in src/<key>/
+// (Color / Roughness / Displacement from prep.py), tiled to real-world scale.
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const W = 900, H = 900;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.setClearColor(0x000000, 0);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+const env = pmrem.fromScene(new RoomEnvironment(), 0.03).texture;
+scene.environment = env;
+// soft studio for metal / glossy swatches (same idea as the sphere renderer)
+const studio = new THREE.Scene();
+{ const sc = document.createElement('canvas'); sc.width = 64; sc.height = 256; const g = sc.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#d9d8d4'); gr.addColorStop(.45, '#f4f2ee'); gr.addColorStop(.55, '#ebe8e2'); gr.addColorStop(1, '#b9b6b0'); g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
+  studio.add(new THREE.Mesh(new THREE.SphereGeometry(20, 64, 32), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), side: THREE.BackSide })));
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(9, 7), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 4.9, 4.7) })); win.position.set(-14, 6, 6); win.lookAt(0, 0, 0); studio.add(win);
+  for (const [x, z] of [[-15, -8], [15, -6], [0, 18]]) { const d = new THREE.Mesh(new THREE.PlaneGeometry(8, 14), new THREE.MeshBasicMaterial({ color: '#8d8b87' })); d.position.set(x, 1, z); d.lookAt(0, 0, 0); studio.add(d); } }
+const softEnv = pmrem.fromScene(studio, 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(26, W / H, 0.1, 100);
+camera.position.set(0, 0.2, 9.6); camera.lookAt(0, 0, 0);
+const key = new THREE.DirectionalLight('#fffaf2', 2.0); key.position.set(-5, 4.2, 4.5); key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048); key.shadow.radius = 24; key.shadow.blurSamples = 32; key.shadow.bias = -0.0005;
+Object.assign(key.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4, near: 0.5, far: 20 }); scene.add(key);
+const fill = new THREE.DirectionalLight('#eef3ff', 0.45); fill.position.set(4, 1.5, 4); scene.add(fill);
+// faint floor far below, so a soft shadow grounds the swatch without a visible horizon
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: 0.07 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -2.15; floor.receiveShadow = true; scene.add(floor);
+
+const bc = document.createElement('canvas'); bc.width = 16; bc.height = 256;
+{ const g = bc.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#f6f5f2'); gr.addColorStop(.8, '#e6e4df'); gr.addColorStop(1, '#cfccc6'); g.fillStyle = gr; g.fillRect(0, 0, 16, 256); }
+const bt = new THREE.CanvasTexture(bc); bt.colorSpace = THREE.SRGBColorSpace;
+const backdrop = new THREE.Group();
+{ const wall = new THREE.Mesh(new THREE.PlaneGeometry(30, 18), new THREE.MeshBasicMaterial({ map: bt, toneMapped: false })); wall.position.set(0, 2, -6); backdrop.add(wall);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(30, 14), new THREE.MeshBasicMaterial({ color: '#dddad4', toneMapped: false })); fl.rotation.x = -Math.PI / 2; fl.position.set(0, -2.16, 0); backdrop.add(fl); }
+backdrop.visible = false; scene.add(backdrop);
+const loader = new THREE.TextureLoader();
+const load = (url, srgb, rep) => new Promise((res) => loader.load(url, (t) => { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep, rep); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; res(t); }, undefined, () => res(null)));
+
+const S = 2.4, N = 48;            // swatch size (scene units ~ 20 cm) and cloth grid resolution
+function simulate(stiff, sag, shape) {
+  // Verlet cloth hung from the two top corners. stiff 0 = silk, 1 = board (returns flat).
+  const n = N + 1, P = [], O = [], pin = new Set([0]);
+  const r45 = Math.PI / 4;
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const u = (i / N) * S, v = (j / N) * S;   // corner 0 at the origin, square rotated 45 degrees: diagonal hangs straight down
+    const x = (u - v) * Math.cos(r45), y = -(u + v) * Math.sin(r45); P.push(new THREE.Vector3(x, y, 0)); O.push(new THREE.Vector3(x, y, 0)); }
+  // corners pulled slightly together so soft materials form a swag (sag 0..1)
+  // soft materials: side corners start lifted a little towards the pin so they fall into folds (sag 0..1)
+  for (const k of [N, N * n]) { P[k].y += sag * S * 0.25; P[k].z += (k === N ? 1 : -1) * sag * S * 0.08; O[k].copy(P[k]); }
+  const rest = S / N, C = [];
+  const link = (a, b, k) => C.push([a, b, P[a].distanceTo(P[b]) || rest, k]);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) { const a = j * n + i;
+    if (i < N) link(a, a + 1, 1); if (j < N) link(a, a + n, 1);
+    if (i < N && j < N) { link(a, a + n + 1, .9); link(a + 1, a + n, .9); }
+    if (i < N - 1) link(a, a + 2, stiff); if (j < N - 1) link(a, a + 2 * n, stiff); }   // bending
+  // restore true rest lengths for the grid (corners moved only the pinned points)
+  C.forEach((c) => { const [a, b] = c; const ia = a % n, ja = Math.floor(a / n), ib = b % n, jb = Math.floor(b / n); c[2] = rest * Math.hypot(ia - ib, ja - jb); });
+  const R = P.map((v) => v.clone()); const kS = shape ?? Math.pow(stiff, 2.2) * 0.07;
+  const g = new THREE.Vector3(0, -0.0016, 0);
+  for (let it = 0; it < 420; it++) {
+    for (let k = 0; k < P.length; k++) { if (pin.has(k)) continue; const p = P[k], v = p.clone().sub(O[k]).multiplyScalar(.985); O[k].copy(p); p.add(v).add(g);
+      p.z += Math.sin(k * 12.9898) * 0.00002; if (kS) p.lerp(R[k], kS); }           // tiny noise breaks symmetry so folds form
+    const passes = 10 + Math.round(30 * stiff);
+    for (let r = 0; r < passes; r++) for (const [a, b, L, kk] of C) {
+      const pa = P[a], pb = P[b], d = pb.clone().sub(pa), len = d.length() || 1e-6, f = (len - L) / len * .5 * kk;
+      const ma = pin.has(a) ? 0 : 1, mb = pin.has(b) ? 0 : 1, s = ma + mb; if (!s) continue;
+      pa.addScaledVector(d, f * 2 * ma / s); pb.addScaledVector(d, -f * 2 * mb / s); }
+  }
+  return P;
+}
+
+let group = null;
+window.renderSwatch = async (slug, p = {}) => {
+  if (group) { scene.remove(group); group.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
+  group = new THREE.Group(); scene.add(group);
+  const rep = (p.tiles ?? 0.3) * (20 / 15);          // tiles were defined per 15 cm sphere; swatch is ~20 cm
+  const base = `src/${slug}/`;
+  const [map, rough, height] = await Promise.all([load(base + 'Color.jpg', true, rep), load(base + 'Roughness.jpg', false, rep), load(base + 'Displacement.jpg', false, rep)]);
+  const m = new THREE.MeshPhysicalMaterial({ color: p.color || '#ffffff', map: p.noMap ? null : map, roughnessMap: p.noMap ? null : rough, bumpMap: p.noMap ? null : height,
+    bumpScale: p.bumpScale ?? 1.2, roughness: p.roughness ?? 1, metalness: p.metalness ?? 0, clearcoat: p.clearcoat ?? 0, clearcoatRoughness: p.clearcoatRoughness ?? .2,
+    sheen: p.sheen ?? 0, sheenRoughness: p.sheenRoughness ?? .5, sheenColor: new THREE.Color(p.sheenColor || '#ffffff'),
+    transmission: p.transmission ?? 0, thickness: p.thickness ?? 0, ior: p.ior ?? 1.5, envMapIntensity: p.envIntensity ?? 1, side: THREE.DoubleSide,
+    transparent: p.opacity != null, opacity: p.opacity ?? 1, depthWrite: p.opacity == null });
+  scene.environment = p.env === 'soft' ? softEnv : env; backdrop.visible = !!p.backdrop;
+  let mesh, top;
+  const stiff = p.stiff ?? 1;
+  if (stiff >= 0.98) {
+    // rigid: a flat panel with real thickness, hanging slightly turned so the edge shows
+    const t = (p.thickMM ?? 6) / 200 * S;           // mm on a 200 mm swatch
+    const geo = new THREE.BoxGeometry(S, S, t, 1, 1, 1);
+    const edge = m.clone(); if (p.edgeColor) { edge.map = null; edge.color = new THREE.Color(p.edgeColor); }
+    let edgeX = edge, edgeY = edge;
+    if (p.plies) {
+      const mk = (vertical) => { const c = document.createElement('canvas'); c.width = vertical ? 256 : 8; c.height = vertical ? 8 : 256; const g = c.getContext('2d');
+        for (let i = 0; i < p.plies; i++) { const a = i * 256 / p.plies, b = 256 / p.plies; g.fillStyle = i % 2 ? '#b89a6c' : '#dcc39a';
+          if (vertical) g.fillRect(a, 0, b, 8); else g.fillRect(0, a, 8, b); g.fillStyle = '#7a6040'; if (vertical) g.fillRect(a, 0, 1.2, 8); else g.fillRect(0, a, 8, 1.2); }
+        const t2 = new THREE.CanvasTexture(c); t2.colorSpace = THREE.SRGBColorSpace; const e = edge.clone(); e.map = t2; e.bumpMap = null; e.roughnessMap = null; e.roughness = .85; e.color = new THREE.Color('#ffffff'); return e; };
+      edgeX = mk(true); edgeY = mk(false);     // box side faces: +-x faces run u along thickness, +-y faces run v along thickness
+    }
+    mesh = new THREE.Mesh(geo, [edgeX, edgeX, edgeY, edgeY, m, m]);
+    geo.rotateZ(Math.PI / 4);                        // hangs from one corner
+    mesh.rotation.y = p.rotY ?? -0.62; mesh.rotation.x = 0.02;
+    top = [new THREE.Vector3(0, S / Math.SQRT2 - 0.05, 0)].map((v) => v.applyEuler(mesh.rotation));
+  } else {
+    const P = simulate(stiff, p.sag ?? (1 - stiff), p.shape);
+    const geo = new THREE.PlaneGeometry(S, S, N, N), pos = geo.attributes.position;
+    for (let k = 0; k < P.length; k++) pos.setXYZ(k, P[k].x, P[k].y, P[k].z);
+    geo.computeVertexNormals();
+    mesh = new THREE.Mesh(geo, m); mesh.rotation.y = p.rotY ?? -0.25;
+    top = [P[0].clone()].map((v) => v.applyEuler(mesh.rotation));
+  }
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  // centre the hanging piece in frame
+  const box = new THREE.Box3().setFromObject(mesh), c = box.getCenter(new THREE.Vector3());
+  mesh.position.set(-c.x, -c.y - 0.15, -c.z); top.forEach((v) => v.add(mesh.position));
+  group.add(mesh);
+  // fine threads from the top corners up out of frame
+  if (p.thread) { const thread = new THREE.MeshStandardMaterial({ color: '#8a8782', roughness: .8 });   // off by default (Rob: no visible wire)
+    for (const v of top) { const len = 4, cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, len, 6), thread); cyl.position.set(v.x, v.y + len / 2, v.z); group.add(cyl); } }
+  renderer.render(scene, camera);
+  return renderer.domElement.toDataURL('image/png');
+};
+window.ready = true;
+</script></body></html>

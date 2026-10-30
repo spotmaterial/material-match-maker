@@ -83,13 +83,13 @@
 <main>
   <section id="words">
     <h1>What material are you looking for?</h1>
-    <p class="lead">Describe it in a few words. Then swipe through material spheres: right if it could work, left if not.</p>
+    <p class="lead">Describe it in a few words. Then swipe through material swatches: right if it could work, left if not.</p>
     <form id="qform"><input id="q" type="text" maxlength="200" autocomplete="off" enterkeyhint="go" placeholder="e.g. acoustic panels for a studio"></form>
     <div class="chips" id="examples"></div>
     <button class="go" id="start">Start</button>
-    <div class="sample"><b>Draft spheres:</b> each material family (and form, e.g. felt, film, foam) has its own sphere. All spheres now have draft studio renders; similar materials share one.</div>
+    <div class="sample"><b>Draft swatches:</b> each material family (and form, e.g. felt, film, foam) has its own swatch, hung from one corner: rigid materials stay flat, soft ones drape. Renders are drafts; similar materials share one.</div>
     <p class="note" style="margin-top:12px">Earlier versions: <a href="photos.html">with photos and questions</a> · <a href="classic.html">tick boxes</a></p>
-    <p class="note">Version: shortlist, material &amp; innovation pages · 30 Oct 20:30</p>
+    <p class="note">Version: hanging swatches · 30 Oct 22:45</p>
   </section>
 
   <section id="deckView" hidden>
@@ -106,14 +106,14 @@
   <section id="results" hidden>
     <h1>Your matches</h1>
     <div class="note" id="sub"></div>
-    <h3>Sustainable innovations <small>· for your words and the spheres you chose</small></h3>
+    <h3>Sustainable innovations <small>· for your words and the swatches you chose</small></h3>
     <ul class="inn" id="inns"></ul>
-    <h3>Standard grades <small>· from the spheres you chose</small></h3>
+    <h3>Standard grades <small>· from the swatches you chose</small></h3>
     <div id="grades"></div>
-    <h3 id="simHead">Similar standard grades <small>· from spheres you didn't swipe away</small></h3>
+    <h3 id="simHead">Similar standard grades <small>· from swatches you didn't swipe away</small></h3>
     <div id="similar"></div>
     <div class="row"><button class="pill" id="again">Keep swiping</button><button class="pill" id="restart">New search</button></div>
-    <p class="note" style="margin-top:16px">Prototype. Spheres show the material only (generated, not product photos). Innovation images © the companies named.</p>
+    <p class="note" style="margin-top:16px">Prototype. Swatches show the material only (generated, not product photos). Innovation images © the companies named.</p>
   </section>
 </main>
 <script>
@@ -198,7 +198,7 @@ async function showResults() {
       rows.filter((r) => r.kind === kind).forEach((r) => { if (!groups.has(r.sphere)) groups.set(r.sphere, []); groups.get(r.sphere).push(r); });
       return [...groups.entries()].map(([k, list]) => `<div class="grp"><div class="grp-head"><img src="${SPHERE(list[0].image || k)}" alt=""><b>${esc(labels[k] || list[0].subtitle)}</b></div>
         <ul>${list.slice(0, 8).map((r) => `<li><a href="material.html?code=${encodeURIComponent(r.code)}">${esc(r.subtitle)} · ${esc(r.name)}</a>${heart(r.code)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join(''); };
-    $('#grades').innerHTML = groupHtml('grade') || '<p class="note">Swipe right on a sphere to see its standard grades here.</p>';
+    $('#grades').innerHTML = groupHtml('grade') || '<p class="note">Swipe right on a swatch to see its standard grades here.</p>';
     const sim = groupHtml('grade_similar'); $('#similar').innerHTML = sim; $('#simHead').hidden = !sim;
     const strip = (t) => String(t || '').replace(/\s*Images?\s+[^.]{2,80}\.?\s*$/i, '');
     const first = (t) => { t = strip(t); const i = t.indexOf('. '); return i > 40 && i < 220 ? t.slice(0, i + 1) : t.slice(0, 200) + (t.length > 200 ? '…' : ''); };
