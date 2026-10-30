@@ -61,6 +61,15 @@
   .inn li { overflow: hidden; padding: 0 !important; margin: 0 !important; }
   .inn .ph { aspect-ratio: 4 / 3; background: #eee center / cover no-repeat; }
   .inn .tx { padding: 9px 11px 11px; }
+  .inn a.card-link { color: inherit; text-decoration: none; display: block; }
+  .inn .acts { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 11px 11px; }
+  .heart { font: inherit; font-size: 13px; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 3px 10px; cursor: pointer; color: var(--ink, #111); text-decoration: none; }
+  .heart.on { background: #111; color: #fff; border-color: #111; }
+  a.heart.web { background: #111; color: #fff; border-color: #111; }
+  .dev { display: inline-block; font-size: 12px; color: #7a4b14; border: 1px solid #c9a06a; border-radius: 999px; padding: 0 7px; margin-left: 4px; }
+  .grp li { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .grp li a { color: inherit; text-decoration: none; } .grp li a:hover { text-decoration: underline; }
+  .grp li .heart { padding: 1px 8px; flex: none; }
   .inn li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
   .inn b { display: block; font-size: 15px; }
   .inn small { color: var(--muted); display: block; margin: 1px 0 4px; }
@@ -80,7 +89,7 @@
     <button class="go" id="start">Start</button>
     <div class="sample"><b>Draft spheres:</b> each material family (and form, e.g. felt, film, foam) has its own sphere. All spheres now have draft studio renders; similar materials share one.</div>
     <p class="note" style="margin-top:12px">Earlier versions: <a href="photos.html">with photos and questions</a> · <a href="classic.html">tick boxes</a></p>
-    <p class="note">Version: innovation images, similar grades · 30 Oct 19:30</p>
+    <p class="note">Version: shortlist, material &amp; innovation pages · 30 Oct 20:30</p>
   </section>
 
   <section id="deckView" hidden>
@@ -176,11 +185,11 @@ function decide(dir) {
 }
 $('#bLike').onclick = () => decide('like'); $('#bPass').onclick = () => decide('pass'); $('#bSkip').onclick = () => decide('skip');
 $('#seeBtn').onclick = () => showResults();
-$('#again').onclick = () => { roundEnd = seen.length + ROUND; show('deckView'); update(); render(); fill(); };
-$('#restart').onclick = () => { $('#q').value = ''; show('words'); };
+$('#again').onclick = () => { history.replaceState(null, '', location.pathname); roundEnd = seen.length + ROUND; show('deckView'); update(); render(); fill(); };
+$('#restart').onclick = () => { history.replaceState(null, '', location.pathname); $('#q').value = ''; show('words'); };
 
 async function showResults() {
-  show('results'); $('#sub').textContent = `“${q}” · ${liked.length} chosen`;
+  show('results'); saveState(); if (location.hash !== '#results') history.replaceState(null, '', '#results'); $('#sub').textContent = `“${q}” · ${liked.length} chosen`;
   $('#grades').innerHTML = $('#similar').innerHTML = $('#inns').innerHTML = '<div class="spinner">Finding…</div>';
   try {
     const rows = await match('sphere_results', { liked, passed, limit: 30 });
@@ -188,15 +197,32 @@ async function showResults() {
     const groupHtml = (kind) => { const groups = new Map();
       rows.filter((r) => r.kind === kind).forEach((r) => { if (!groups.has(r.sphere)) groups.set(r.sphere, []); groups.get(r.sphere).push(r); });
       return [...groups.entries()].map(([k, list]) => `<div class="grp"><div class="grp-head"><img src="${SPHERE(list[0].image || k)}" alt=""><b>${esc(labels[k] || list[0].subtitle)}</b></div>
-        <ul>${list.slice(0, 8).map((r) => `<li>${esc(r.subtitle)} · ${esc(r.name)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join(''); };
+        <ul>${list.slice(0, 8).map((r) => `<li><a href="material.html?code=${encodeURIComponent(r.code)}">${esc(r.subtitle)} · ${esc(r.name)}</a>${heart(r.code)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join(''); };
     $('#grades').innerHTML = groupHtml('grade') || '<p class="note">Swipe right on a sphere to see its standard grades here.</p>';
     const sim = groupHtml('grade_similar'); $('#similar').innerHTML = sim; $('#simHead').hidden = !sim;
     const strip = (t) => String(t || '').replace(/\s*Images?\s+[^.]{2,80}\.?\s*$/i, '');
     const first = (t) => { t = strip(t); const i = t.indexOf('. '); return i > 40 && i < 220 ? t.slice(0, i + 1) : t.slice(0, 200) + (t.length > 200 ? '…' : ''); };
-    $('#inns').innerHTML = rows.filter((r) => r.kind === 'innovation').map((r) => `<li>${r.image ? `<div class="ph" style="background-image:url('${IMG(r.image)}')" role="img" aria-label="${esc(r.name)}, image ${esc(r.subtitle)}"></div>` : ''}<div class="tx"><b>${esc(r.name)}</b><small>${esc(r.subtitle)}</small><p>${esc(first(r.summary))}</p></div></li>`).join('');
+    const innRows = rows.filter((r) => r.kind === 'innovation');
+    $('#inns').innerHTML = innRows.map((r) => `<li><a class="card-link" href="innovation.html?code=${encodeURIComponent(r.code)}">${r.image ? `<div class="ph" style="background-image:url('${IMG(r.image)}')" role="img" aria-label="${esc(r.name)}, image ${esc(r.subtitle)}"></div>` : ''}<div class="tx"><b>${esc(r.name)}</b><small>${esc(r.subtitle)}<span data-dev="${esc(r.code)}"></span></small><p>${esc(first(r.summary))}</p></div></a>
+      <div class="acts">${heart(r.code)}<span data-web="${esc(r.code)}"></span></div></li>`).join('');
+    if (window.Shortlist && innRows.length) Shortlist.items(innRows.map((r) => r.code)).then((items) => items.forEach((it) => {
+      const w = document.querySelector(`[data-web="${CSS.escape(it.code)}"]`); if (w && it.company_url) w.outerHTML = `<a class="heart web" href="${esc(it.company_url)}" target="_blank" rel="noopener">Visit company ↗</a>`;
+      const d = document.querySelector(`[data-dev="${CSS.escape(it.code)}"]`); if (d && it.in_development) d.outerHTML = '<span class="dev">In development</span>';
+    })).catch(() => {});
   } catch (e) { $('#grades').innerHTML = `<p class="note">Couldn't load: ${esc(e.message)}</p>`; $('#inns').innerHTML = ''; }
 }
 window._labels = [];
+// ---- hearts (shortlist.js) and keeping the results so "Your matches" can come back to them
+const heart = (code) => `<button type="button" class="heart${window.Shortlist && Shortlist.has(code) ? ' on' : ''}" data-heart="${esc(code)}" aria-label="Save to shortlist">${window.Shortlist && Shortlist.has(code) ? '♥ Saved' : '♡ Save'}</button>`;
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-heart]'); if (!b) return; e.preventDefault();
+  const on = Shortlist.toggle(b.dataset.heart); document.querySelectorAll(`[data-heart="${CSS.escape(b.dataset.heart)}"]`).forEach((x) => { x.classList.toggle('on', on); x.textContent = on ? '♥ Saved' : '♡ Save'; }); });
+function saveState() { try { sessionStorage.setItem('spot_match_state', JSON.stringify({ q, liked, passed, seen, roundEnd, labels: window._labels.slice(-200) })); } catch (e) {} }
+(function restore() {
+  if (location.hash !== '#results') return;
+  try { const st = JSON.parse(sessionStorage.getItem('spot_match_state') || 'null'); if (!st || !st.q) return;
+    ({ q, liked, passed, seen, roundEnd } = st); window._labels = st.labels || []; $('#q').value = q; $('#briefText').textContent = `“${q}”`; showResults(); } catch (e) {}
+})();
 </script>
+<script src="shortlist.js"></script>
 </body>
 </html>

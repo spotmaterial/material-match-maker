@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shortlist · Spot Material match</title>
+<style>
+  :root { --bg: #f6f5f2; --card: #fff; --line: #e4e1da; --muted: #6b6a66; --ink: #111; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 Inter, system-ui, -apple-system, sans-serif; }
+  header { padding: 14px 18px; }
+  .logo { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--ink); text-decoration: none; }
+  .logo i { width: 14px; height: 14px; border-radius: 50%; background: var(--ink); display: inline-block; }
+  .logo span { font-weight: 400; color: var(--muted); }
+  main { max-width: 760px; margin: 0 auto; padding: 8px 18px 60px; }
+  h1 { font-size: 28px; margin: 10px 0 4px; }
+  .note { color: var(--muted); font-size: 14px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 18px; }
+  .pill { border: 1px solid var(--ink); background: #fff; color: var(--ink); border-radius: 999px; padding: 9px 15px; font: inherit; font-size: 15px; cursor: pointer; text-decoration: none; }
+  .pill.dark { background: var(--ink); color: #fff; }
+  h3 { margin: 22px 0 10px; font-size: 17px; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .ph { aspect-ratio: 4 / 3; background: #eee center / cover no-repeat; display: block; }
+  .ph.sphere { background-size: contain; background-color: #efede9; }
+  .tx { padding: 9px 11px 11px; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .tx a.n { font-weight: 600; color: var(--ink); text-decoration: none; }
+  .tx small { color: var(--muted); }
+  .dev { display: inline-block; font-size: 12px; color: #7a4b14; border: 1px solid #c9a06a; border-radius: 999px; padding: 0 7px; margin-top: 3px; width: fit-content; }
+  .acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 8px; }
+  .acts a, .acts button { font: inherit; font-size: 13px; border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 4px 10px; color: var(--ink); text-decoration: none; cursor: pointer; }
+  .acts a.web { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .empty { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 28px; text-align: center; color: var(--muted); }
+  .banner { background: #fff8e8; border: 1px solid #ecd9a8; border-radius: 12px; padding: 12px 14px; margin: 12px 0; }
+</style>
+</head>
+<body>
+<header><a class="logo" href="index.html"><i></i>spot material <span>match</span></a></header>
+<main>
+  <h1>Your shortlist</h1>
+  <p class="note" id="sub">Materials and innovations you saved. Kept in this browser.</p>
+  <div class="banner" id="shared" hidden></div>
+  <div class="tools" id="tools" hidden>
+    <button class="pill dark" id="share">Copy link to share</button>
+    <button class="pill" id="print">Print / save as PDF</button>
+    <button class="pill" id="clear">Clear shortlist</button>
+  </div>
+  <div id="list"><p class="note">Loading…</p></div>
+</main>
+<script src="shortlist.js"></script>
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const sharedCodes = (new URLSearchParams(location.search).get('codes') || '').split(',').map((s) => s.trim()).filter(Boolean);
+const viewingShared = sharedCodes.length > 0;
+
+async function draw() {
+  const codes = viewingShared ? sharedCodes : Shortlist.codes();
+  $('#tools').hidden = !codes.length;
+  $('#clear').hidden = viewingShared;
+  if (!codes.length) { $('#list').innerHTML = '<div class="empty">Nothing saved yet. Tap ♡ on an innovation or a material in your results, or on its page.<br><br><a class="pill dark" href="index.html">Start a search</a></div>'; return; }
+  let items = [];
+  try { items = await Shortlist.items(codes); } catch (e) { $('#list').innerHTML = `<p class="note">Couldn't load: ${esc(e.message)}</p>`; return; }
+  const card = (it) => `<li>
+      <a class="ph ${it.image_kind === 'sphere' ? 'sphere' : ''}" href="${Shortlist.page(it)}" style="background-image:url('${Shortlist.img(it)}')" aria-label="${esc(it.name)}"></a>
+      <div class="tx"><a class="n" href="${Shortlist.page(it)}">${esc(it.name)}</a><small>${esc(it.subtitle)}</small>
+        ${it.in_development ? '<span class="dev">In development</span>' : ''}
+        <div class="acts">
+          ${it.company_url ? `<a class="web" href="${esc(it.company_url)}" target="_blank" rel="noopener">Visit company ↗</a><a href="${esc(it.company_url)}" target="_blank" rel="noopener" title="Opens the company's website">Ask about samples ↗</a>` : ''}
+          <a href="${Shortlist.page(it)}">Details</a>
+          ${viewingShared ? (Shortlist.has(it.code) ? '<button disabled>♥ Saved</button>' : `<button data-add="${esc(it.code)}">♡ Save</button>`) : `<button data-rm="${esc(it.code)}">Remove</button>`}
+        </div></div></li>`;
+  const inns = items.filter((i) => i.kind === 'innovation'), mats = items.filter((i) => i.kind !== 'innovation');
+  $('#list').innerHTML = (inns.length ? `<h3>Innovations (${inns.length})</h3><ul>${inns.map(card).join('')}</ul>` : '') +
+    (mats.length ? `<h3>Standard materials (${mats.length})</h3><ul>${mats.map(card).join('')}</ul>` : '');
+  $('#list').querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { Shortlist.remove(b.dataset.rm); draw(); });
+  $('#list').querySelectorAll('[data-add]').forEach((b) => b.onclick = () => { Shortlist.add(b.dataset.add); draw(); });
+}
+
+if (viewingShared) {
+  $('#sub').textContent = 'A shortlist someone shared with you.';
+  $('#shared').hidden = false;
+  $('#shared').innerHTML = `${sharedCodes.length} items. <button class="pill" id="addAll" style="margin-left:8px">Add all to my shortlist</button> <a class="pill" href="shortlist.html" style="margin-left:4px">My own shortlist</a>`;
+  $('#addAll').onclick = () => { Shortlist.set([...sharedCodes, ...Shortlist.codes()]); draw(); $('#addAll').textContent = 'Added'; };
+}
+$('#share').onclick = async () => {
+  const codes = viewingShared ? sharedCodes : Shortlist.codes();
+  const url = location.origin + location.pathname + '?codes=' + encodeURIComponent(codes.join(','));
+  try { await navigator.clipboard.writeText(url); $('#share').textContent = 'Link copied'; }
+  catch (e) { prompt('Copy this link:', url); }
+  setTimeout(() => { $('#share').textContent = 'Copy link to share'; }, 2000);
+};
+$('#print').onclick = () => print();
+$('#clear').onclick = () => { const b = $('#clear'); if (b.dataset.sure) { Shortlist.set([]); delete b.dataset.sure; b.textContent = 'Clear shortlist'; draw(); } else { b.dataset.sure = 1; b.textContent = 'Tap again to clear'; setTimeout(() => { delete b.dataset.sure; b.textContent = 'Clear shortlist'; }, 3000); } };
+Shortlist.onChange(() => { if (!viewingShared) draw(); });
+draw();
+</script>
+</body>
+</html>
