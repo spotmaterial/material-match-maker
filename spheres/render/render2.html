@@ -43,6 +43,41 @@ const cc = document.createElement('canvas'); cc.width = cc.height = 256;
 const contact = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.9), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cc), transparent: true, depthWrite: false }));
 contact.rotation.x = -Math.PI / 2; contact.position.set(0.12, -0.995, 0.05); scene.add(contact);
 
+// Studio environment for metals and glass: warm off-white sweep, light walls, a soft window
+// on the left (same side as the key light), so reflections match the backdrop instead of the
+// darker RoomEnvironment.
+const studioScene = new THREE.Scene();
+{
+  const sc = document.createElement('canvas'); sc.width = 64; sc.height = 256;
+  const g = sc.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#d9d8d4'); gr.addColorStop(0.45, '#f4f2ee'); gr.addColorStop(0.55, '#ebe8e2'); gr.addColorStop(1, '#b9b6b0');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 256);
+  const room = new THREE.Mesh(new THREE.SphereGeometry(20, 64, 32), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), side: THREE.BackSide }));
+  studioScene.add(room);
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(9, 7), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 4.9, 4.7) }));
+  win.position.set(-14, 6, 6); win.lookAt(0, 0, 0); studioScene.add(win);
+  const win2 = new THREE.Mesh(new THREE.PlaneGeometry(6, 10), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.6, 1.65) }));
+  win2.position.set(12, 3, 9); win2.lookAt(0, 0, 0); studioScene.add(win2);
+  const dark = new THREE.Mesh(new THREE.PlaneGeometry(5, 12), new THREE.MeshBasicMaterial({ color: '#55534f' }));
+  dark.position.set(4, 2, -16); dark.lookAt(0, 0, 0); studioScene.add(dark);
+  for (const [px, pz] of [[-15, -8], [15, -6], [0, 18]]) { const d2 = new THREE.Mesh(new THREE.PlaneGeometry(8, 14), new THREE.MeshBasicMaterial({ color: '#3d3c3a' })); d2.position.set(px, 1, pz); d2.lookAt(0, 0, 0); d2.userData.glassOnly = true; studioScene.add(d2); }
+}
+const studioEnv = pmrem.fromScene(studioScene, 0.02).texture;
+// softer studio for polished metal: without the dark panels that give glass its edge
+studioScene.children.forEach(o => { if (o.userData.glassOnly) o.material.color.set('#8d8b87'); });
+const softEnv = pmrem.fromScene(studioScene, 0.04).texture;
+
+// Backdrop drawn in the scene (glass only), so refraction shows the surface behind the ball.
+const bc = document.createElement('canvas'); bc.width = 16; bc.height = 256;
+{ const g = bc.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256); gr.addColorStop(0, '#f6f5f2'); gr.addColorStop(0.8, '#e6e4df'); gr.addColorStop(1, '#cfccc6'); g.fillStyle = gr; g.fillRect(0, 0, 16, 256); }
+const bt = new THREE.CanvasTexture(bc); bt.colorSpace = THREE.SRGBColorSpace;
+const backdrop = new THREE.Group();
+{ const wall = new THREE.Mesh(new THREE.PlaneGeometry(30, 16), new THREE.MeshBasicMaterial({ map: bt, toneMapped: false }));
+  wall.position.set(0, 4, -6); backdrop.add(wall);
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(30, 14), new THREE.MeshBasicMaterial({ color: '#dddad4', toneMapped: false }));
+  fl.rotation.x = -Math.PI / 2; fl.position.set(0, -1.003, 0); backdrop.add(fl); }
+backdrop.visible = false; scene.add(backdrop);
+
 const geo = new THREE.SphereGeometry(1, 256, 160);
 let mesh = null;
 const loader = new THREE.TextureLoader();
@@ -63,7 +98,13 @@ window.renderSphere = async (slug, p = {}) => {
     envMapIntensity: p.envIntensity ?? 1,
   });
   if (p.attenuationColor) { m.attenuationColor = new THREE.Color(p.attenuationColor); m.attenuationDistance = p.attenuationDistance ?? 1; }
-  mesh = new THREE.Mesh(geo, m); mesh.castShadow = true; mesh.rotation.y = p.rotY ?? 0.4; mesh.rotation.x = p.rotX ?? 0.15;
+  if (p.anisotropy) { m.anisotropy = p.anisotropy; m.anisotropyRotation = p.anisotropyRotation ?? 0; }
+  // env: 'studio' for metals and glass; backdrop: draw the surface in-scene (glass)
+  scene.environment = p.env === 'studio' ? studioEnv : p.env === 'soft' ? softEnv : env;
+  backdrop.visible = !!p.backdrop;
+  contact.material.opacity = p.contactOpacity ?? 1;
+  floor.material.opacity = p.shadowOpacity ?? 0.15;
+  mesh = new THREE.Mesh(geo, m); mesh.castShadow = p.castShadow ?? true; mesh.rotation.y = p.rotY ?? 0.4; mesh.rotation.x = p.rotX ?? 0.15;
   scene.add(mesh);
   renderer.render(scene, camera);
   return renderer.domElement.toDataURL('image/png');

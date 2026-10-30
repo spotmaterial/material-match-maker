@@ -1,0 +1,12 @@
+[
+ {"slug":"oak","params":{"bumpScale":1.2,"clearcoat":0.15,"clearcoatRoughness":0.5,"rotY":0.4}},
+ {"slug":"softwood","params":{"bumpScale":1.0,"clearcoat":0.1,"clearcoatRoughness":0.5,"rotY":1.2}},
+ {"slug":"softwood-b","params":{"bumpScale":1.0,"clearcoat":0.1,"clearcoatRoughness":0.5,"rotY":1.2}},
+ {"slug":"plywood","params":{"bumpScale":1.0,"rotX":0.0}},
+ {"slug":"cork","params":{"bumpScale":1.4}},
+ {"slug":"wool-felt","params":{"bumpScale":1.6,"sheen":0.6,"sheenColor":"#d8d2c8","sheenRoughness":0.8}},
+ {"slug":"pet-felt","params":{"bumpScale":0.9,"sheen":0.5,"sheenColor":"#cfcfcf","sheenRoughness":0.8}},
+ {"slug":"aluminium","params":{"metalness":1,"bumpScale":0.15,"env":"studio","envIntensity":1.0,"color":"#f2f3f4","anisotropy":0.7,"anisotropyRotation":1.5708}},
+ {"slug":"stainless","params":{"metalness":1,"bumpScale":0.1,"env":"studio","envIntensity":1.0,"color":"#e4e4e2","anisotropy":0.4,"anisotropyRotation":1.5708}},
+ {"slug":"clear-glass","params":{"roughness":0.0,"metalness":0,"transmission":1,"thickness":2,"ior":1.5,"attenuationColor":"#dfeee8","attenuationDistance":5,"env":"studio","backdrop":true,"castShadow":false,"contactOpacity":0.45}}
+]
