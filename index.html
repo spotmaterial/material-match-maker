@@ -330,8 +330,10 @@ async function fill() {
   loading = true;
   try {
     const rows = await match('deck', { liked: likedCodes(), passed, seen: [...new Set([...seen, ...queue.map(c => c.code)])], limit: 5 });
+    const have = new Set([...seen, ...queue.map(c => c.code)]);
+    const fresh = rows.filter(r => !have.has(r.code) && have.add(r.code));
     if (!rows.length) exhausted = true;
-    queue.push(...rows);
+    queue.push(...fresh);
     rows.forEach(r => { const i = new Image(); i.src = IMG(r.image_path); });
   } catch (e) { $('#deck').innerHTML = `<div class="err">Couldn't load materials. ${esc(e.message.slice(0, 120))}</div>`; }
   loading = false; render();
