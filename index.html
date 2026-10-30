@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spot Material · Match</title>
+<style>
+  :root {
+    --ink: #141414; --muted: #6b6b6b; --line: #e6e4df; --bg: #f6f5f1; --card: #fff;
+    --like: #1f8a5b; --pass: #c4453a; --star: #d99a1e; --chip: #efeee9;
+    --r: 18px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  body { display: flex; flex-direction: column; overscroll-behavior: none; }
+  header { display: flex; align-items: center; justify-content: space-between;
+    padding: calc(10px + env(safe-area-inset-top)) 18px 10px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; letter-spacing: -.02em; cursor: pointer; }
+  .logo i { width: 14px; height: 14px; border-radius: 50%; background: var(--ink); display: inline-block; }
+  .logo span { font-weight: 400; color: var(--muted); }
+  .pill { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 14px;
+    font: inherit; font-size: 14px; cursor: pointer; color: var(--ink); }
+  .pill b { color: var(--like); }
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; width: 100%; max-width: 480px; margin: 0 auto; }
+
+  /* Brief */
+  #brief { padding: 6px 18px 24px; overflow-y: auto; }
+  #brief h1 { font-size: 28px; line-height: 1.1; letter-spacing: -.03em; margin: 8px 0 6px; }
+  #brief p.lead { color: var(--muted); margin: 0 0 18px; }
+  .q { margin: 18px 0 8px; font-weight: 600; }
+  .q small { font-weight: 400; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 8px 14px;
+    font: inherit; font-size: 14px; cursor: pointer; color: var(--ink); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .go { margin-top: 26px; width: 100%; padding: 15px; border: 0; border-radius: 14px; background: var(--ink); color: #fff;
+    font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; }
+
+  /* Deck */
+  #deckView { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0 14px; }
+  .briefline { font-size: 13px; color: var(--muted); padding: 0 4px 8px; display: flex; justify-content: space-between; gap: 8px; }
+  .briefline button { background: none; border: 0; color: var(--ink); text-decoration: underline; font: inherit; cursor: pointer; padding: 0; }
+  #deck { position: relative; flex: 1; min-height: 360px; }
+  .card { position: absolute; inset: 0; background: var(--card); border-radius: var(--r); overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.08); display: flex; flex-direction: column;
+    touch-action: none; user-select: none; will-change: transform; transition: transform .25s ease; }
+  .card.dragging { transition: none; }
+  .card.under { transform: scale(.95) translateY(10px); }
+  .card .img { position: relative; flex: 1 1 58%; min-height: 0; background: #ddd center/cover no-repeat; }
+  .card .credit { position: absolute; right: 8px; bottom: 8px; font-size: 11px; color: #fff; background: rgba(0,0,0,.45);
+    padding: 2px 7px; border-radius: 6px; }
+  .stamp { position: absolute; top: 22px; padding: 4px 12px; border: 3px solid; border-radius: 8px; font-weight: 800;
+    font-size: 26px; letter-spacing: .04em; opacity: 0; transform: rotate(-12deg); background: rgba(255,255,255,.85); }
+  .stamp.like { left: 18px; color: var(--like); }
+  .stamp.pass { right: 18px; color: var(--pass); transform: rotate(12deg); }
+  .stamp.star { left: 50%; top: auto; bottom: 30px; transform: translateX(-50%); color: var(--star); font-size: 20px; }
+  .card .body { flex: 0 1 auto; padding: 14px 16px 16px; overflow-y: auto; max-height: 48%; }
+  .card h2 { font-size: 19px; line-height: 1.2; margin: 0 0 2px; letter-spacing: -.01em; }
+  .card .co { color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+  .why { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .why span { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #e3f2ea; color: #17643f; }
+  .why span.tag { background: var(--chip); color: #444; }
+  .card p { margin: 0; font-size: 14px; color: #333; }
+  .more { background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; font: inherit; font-size: 13px; cursor: pointer; margin-top: 6px; }
+  .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+  .facts div { background: var(--bg); border-radius: 10px; padding: 7px 8px; font-size: 12px; color: var(--muted); }
+  .facts b { display: block; color: var(--ink); font-size: 14px; }
+  .facts-note { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .actions { display: flex; justify-content: center; align-items: center; gap: 22px; padding: 14px 0 calc(14px + env(safe-area-inset-bottom)); }
+  .act { width: 62px; height: 62px; border-radius: 50%; border: 0; background: var(--card); box-shadow: 0 4px 14px rgba(0,0,0,.12);
+    font-size: 26px; cursor: pointer; display: grid; place-items: center; }
+  .act.small { width: 50px; height: 50px; font-size: 20px; }
+  .act.pass { color: var(--pass); } .act.like { color: var(--like); } .act.star { color: var(--star); }
+  .act:active { transform: scale(.94); }
+  .hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: -6px; padding-bottom: 6px; }
+
+  .toast { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: var(--ink); color: #fff; border-radius: 14px; padding: 10px 12px; width: min(440px, calc(100% - 28px));
+    box-shadow: 0 10px 30px rgba(0,0,0,.25); z-index: 10; font-size: 13px; }
+  .toast .chips { margin-top: 8px; gap: 6px; }
+  .toast .chip { background: #2b2b2b; color: #fff; border-color: #3a3a3a; padding: 6px 11px; font-size: 13px; }
+  .learn { position: fixed; top: calc(60px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 9;
+    background: #e3f2ea; color: #17643f; border-radius: 999px; padding: 6px 14px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 30px; }
+
+  /* Matches */
+  #matches { padding: 4px 18px 30px; overflow-y: auto; }
+  #matches h1 { font-size: 26px; letter-spacing: -.03em; margin: 6px 0 4px; }
+  .taste { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 12px 0 16px; font-size: 14px; }
+  .taste .why { margin: 8px 0 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .m { background: var(--card); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); cursor: pointer; }
+  .m .im { aspect-ratio: 4/3; background: #ddd center/cover; position: relative; }
+  .m .im em { position: absolute; top: 6px; left: 6px; background: var(--star); color: #fff; font-style: normal; font-size: 11px; border-radius: 999px; padding: 2px 8px; }
+  .m div.t { padding: 8px 10px 10px; font-size: 13px; line-height: 1.25; }
+  .m div.t small { display: block; color: var(--muted); margin-top: 2px; }
+  .row { display: flex; gap: 10px; margin-top: 18px; }
+  .row button { flex: 1; }
+  .sheet { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+  .sheet > div { background: var(--card); width: 100%; max-width: 480px; max-height: 88%; overflow-y: auto; border-radius: 20px 20px 0 0;
+    padding: 0 0 calc(18px + env(safe-area-inset-bottom)); }
+  .sheet .img { aspect-ratio: 4/3; background: #ddd center/cover; position: relative; }
+  .sheet .in { padding: 14px 18px; }
+  .sheet h2 { margin: 0 0 2px; font-size: 20px; }
+  .sheet p { font-size: 14px; color: #333; }
+  .note { font-size: 12px; color: var(--muted); }
+  .err { color: var(--pass); padding: 20px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo" id="home"><i></i>spot material <span>match</span></div>
+  <button class="pill" id="matchesBtn" hidden>Matches <b id="matchCount">0</b></button>
+</header>
+
+<main>
+  <!-- 1. Brief -->
+  <section id="brief">
+    <h1>Find your material match</h1>
+    <p class="lead">Tell us what you're designing, then swipe. Right if you like it, left if not. The deck learns your taste as you go.</p>
+
+    <div class="q">What are you designing?</div>
+    <div class="chips" data-group="application" data-single></div>
+
+    <div class="q">What form? <small>optional</small></div>
+    <div class="chips" data-group="format" data-single></div>
+
+    <div class="q">What matters to you? <small>pick any</small></div>
+    <div class="chips" data-group="priorities"></div>
+
+    <button class="go" id="start">Start swiping</button>
+  </section>
+
+  <!-- 2. Deck -->
+  <section id="deckView" hidden>
+    <div class="briefline"><span id="briefText"></span><button id="editBrief">Change</button></div>
+    <div id="deck"></div>
+    <div class="actions">
+      <button class="act pass" id="bPass" aria-label="Not for me">✕</button>
+      <button class="act small star" id="bStar" aria-label="Want a sample">★</button>
+      <button class="act like" id="bLike" aria-label="I like it">♥</button>
+    </div>
+    <div class="hint">Swipe or use the buttons · ★ = I'd like a sample</div>
+  </section>
+
+  <!-- 3. Matches -->
+  <section id="matches" hidden>
+    <h1>Your matches</h1>
+    <div class="note" id="matchSub"></div>
+    <div class="taste" id="taste" hidden></div>
+    <div class="grid" id="grid"></div>
+    <div class="row">
+      <button class="pill" id="keepSwiping">Keep swiping</button>
+      <button class="pill" id="restart">New brief</button>
+    </div>
+    <p class="note" style="margin-top:18px">Prototype. Sample and introduction requests aren't sent yet. Images belong to the companies named on each card.</p>
+  </section>
+</main>
+
+<div class="learn" id="learn" hidden></div>
+<div class="toast" id="toast" hidden></div>
+<div class="sheet" id="sheet" hidden></div>
+
+<script>
+const SUPABASE = 'https://bjkkqawalpuvsubnbodt.supabase.co';
+const KEY = 'sb_publishable_ZZN2JFwNHFbBLLjh2DE3cg_4t1YvQ7m';
+const IMG = p => `${SUPABASE}/storage/v1/object/public/images/${p}`;
+
+const OPTIONS = {
+  application: ['Fashion','Textile','Footwear','Packaging','Furniture','Interior','Architecture','Product','Tableware','Automotive','Anything'],
+  format: ['Sheet & plate','Textile','Fibre & wire','Film','Foam','3D shape','Print & coat'],
+  priorities: ['Lower carbon','Plastic free','Compostable','Recycled','Renewable','Animal free','Circular']
+};
+const PASS_REASONS = ['Wrong look','Wrong for my use','Not sustainable enough','Not convinced'];
+
+// ---------- state ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('spotmatch.' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('spotmatch.' + k, JSON.stringify(v)); } catch {} }
+};
+let session = store.get('session', null);
+if (!session) { session = Math.random().toString(36).slice(2) + Date.now().toString(36); store.set('session', session); }
+
+let brief = store.get('brief', { application: null, format: null, priorities: [] });
+let liked = store.get('liked', []);     // codes
+let passed = store.get('passed', []);   // codes
+let seen = store.get('seen', []);       // codes
+let matches = store.get('matches', []); // card objects with .star
+let queue = [];
+let loading = false, exhausted = false;
+
+const $ = s => document.querySelector(s);
+const save = () => { store.set('brief', brief); store.set('liked', liked); store.set('passed', passed); store.set('seen', seen); store.set('matches', matches); };
+
+// ---------- api ----------
+async function rpc(fn, body) {
+  const r = await fetch(`${SUPABASE}/rest/v1/rpc/${fn}`, {
+    method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+function logSwipe(code, direction, reason) {
+  rpc('log_swipe', { p_session: session, p_code: code, p_direction: direction, p_reason: reason || null, p_brief: brief }).catch(() => {});
+}
+async function fill() {
+  if (loading || exhausted) return;
+  loading = true;
+  try {
+    const exclude = [...new Set([...seen, ...queue.map(c => c.code)])];
+    const rows = await rpc('swipe_deck', {
+      p_application: brief.application, p_format: brief.format, p_priorities: brief.priorities,
+      p_liked: liked.slice(-25), p_passed: passed.slice(-25), p_seen: exclude, p_limit: 6
+    });
+    if (!rows.length) exhausted = true;
+    queue.push(...rows);
+    rows.forEach(r => { const i = new Image(); i.src = IMG(r.image_path); });
+  } catch (e) {
+    $('#deck').innerHTML = `<div class="err">Couldn't load materials. ${e.message.slice(0, 120)}</div>`;
+  }
+  loading = false;
+  render();
+}
+
+// ---------- helpers ----------
+function splitCredit(summary, company) {
+  let text = (summary || '').trim(), credit = null;
+  const m = text.match(/\s*(?:Images?|Photo)(?:\s+(?:courtesy of|by|credit:?|©))?\s*:?\s+([^.]{2,80})\.?\s*$/i);
+  if (m) { credit = m[1].trim(); text = text.slice(0, m.index).trim(); }
+  return { text, credit: credit || company || null };
+}
+function firstSentences(t, max = 170) {
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max); const i = cut.lastIndexOf('. ');
+  return (i > 60 ? cut.slice(0, i + 1) : cut.replace(/\s+\S*$/, '') + '…');
+}
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function facts(c) {
+  const f = [];
+  if (c.co2e != null) f.push(`<div><b>${(+c.co2e).toLocaleString(undefined, { maximumFractionDigits: 2 })}</b>kg CO2e/kg</div>`);
+  if (c.cost != null) f.push(`<div><b>$${(+c.cost).toLocaleString(undefined, { maximumFractionDigits: 1 })}</b>per kg</div>`);
+  if (c.circularity != null) f.push(`<div><b>${c.circularity}/5</b>circularity</div>`);
+  return f.length ? `<div class="facts">${f.join('')}</div><div class="facts-note">Draft estimates</div>` : '';
+}
+function tags(c, n = 3) {
+  const t = [...(c.reasons || [])].filter(x => !(c.why || []).includes(x)).slice(0, n);
+  return t.map(x => `<span class="tag">${esc(x)}</span>`).join('');
+}
+
+// ---------- render deck ----------
+function cardHTML(c) {
+  const { text, credit } = splitCredit(c.summary, c.company);
+  return `
+    <div class="img" style="background-image:url('${IMG(c.image_path)}')">
+      ${credit ? `<span class="credit">Image: ${esc(credit)}</span>` : ''}
+      <span class="stamp like">LIKE</span><span class="stamp pass">NOPE</span><span class="stamp star">★ SAMPLE</span>
+    </div>
+    <div class="body">
+      <h2>${esc(c.name)}</h2>
+      <div class="co">${esc(c.company || 'Company product')}</div>
+      <div class="why">${(c.why || []).map(w => `<span>✓ ${esc(w)}</span>`).join('')}${tags(c)}</div>
+      <p class="txt">${esc(firstSentences(text))}</p>
+      ${text.length > 170 ? `<button class="more">More</button>` : ''}
+      <div class="extra" hidden>${facts(c)}</div>
+    </div>`;
+}
+function render() {
+  const deck = $('#deck');
+  deck.querySelectorAll('.card,.empty').forEach(n => n.remove());
+  const show = queue.slice(0, 2).reverse();
+  if (!show.length) {
+    deck.insertAdjacentHTML('beforeend', loading ? `<div class="empty">Finding materials…</div>` :
+      `<div class="empty"><div>You've seen everything for this brief.<br><br><button class="pill" onclick="showMatches()">See your matches</button></div></div>`);
+    return;
+  }
+  show.forEach((c, i) => {
+    const el = document.createElement('div');
+    el.className = 'card' + (i === 0 && show.length === 2 ? ' under' : '');
+    el.innerHTML = cardHTML(c);
+    deck.appendChild(el);
+  });
+  const top = deck.lastElementChild;
+  const c = queue[0];
+  top.querySelector('.more')?.addEventListener('click', e => {
+    e.stopPropagation();
+    const { text } = splitCredit(c.summary, c.company);
+    top.querySelector('.txt').textContent = text;
+    top.querySelector('.extra').hidden = false;
+    e.target.remove();
+  });
+  attachDrag(top);
+}
+
+// ---------- drag ----------
+function attachDrag(el) {
+  let sx = 0, sy = 0, dx = 0, dy = 0, down = false;
+  const stamps = { like: el.querySelector('.stamp.like'), pass: el.querySelector('.stamp.pass'), star: el.querySelector('.stamp.star') };
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest('button')) return;
+    down = true; sx = e.clientX; sy = e.clientY; dx = dy = 0; el.classList.add('dragging'); el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', e => {
+    if (!down) return;
+    dx = e.clientX - sx; dy = e.clientY - sy;
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${dx / 18}deg)`;
+    stamps.like.style.opacity = Math.max(0, Math.min(1, dx / 90));
+    stamps.pass.style.opacity = Math.max(0, Math.min(1, -dx / 90));
+    stamps.star.style.opacity = Math.abs(dx) < 60 ? Math.max(0, Math.min(1, -dy / 110)) : 0;
+  });
+  const end = () => {
+    if (!down) return; down = false; el.classList.remove('dragging');
+    const w = el.offsetWidth;
+    if (dx > w * 0.28) decide('like');
+    else if (dx < -w * 0.28) decide('pass');
+    else if (dy < -140 && Math.abs(dx) < 60) decide('star');
+    else { el.style.transform = ''; Object.values(stamps).forEach(s => s.style.opacity = 0); }
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+let busy = false;
+function decide(dir) {
+  if (busy || !queue.length) return;
+  busy = true;
+  const c = queue[0];
+  const el = $('#deck').lastElementChild;
+  if (el && el.classList.contains('card')) {
+    const s = el.querySelector('.stamp.' + dir); if (s) s.style.opacity = 1;
+    const x = dir === 'like' ? 1.4 : dir === 'pass' ? -1.4 : 0;
+    el.style.transform = dir === 'star' ? 'translate(0,-130%) rotate(0)' : `translate(${x * window.innerWidth}px, 40px) rotate(${x * 22}deg)`;
+  }
+  seen.push(c.code);
+  if (dir === 'pass') { passed.push(c.code); askReason(c); }
+  else {
+    liked.push(c.code);
+    matches = matches.filter(m => m.code !== c.code);
+    matches.unshift({ ...c, star: dir === 'star' });
+    hideToast();
+  }
+  logSwipe(c.code, dir === 'star' ? 'super' : dir);
+  queue.shift();
+  // after a like, re-rank what's next so the deck follows the new taste
+  if (dir !== 'pass' && queue.length > 1) queue = queue.slice(0, 1);
+  save(); updateCount(); learningNote();
+  setTimeout(() => { busy = false; render(); if (queue.length < 3) fill(); }, 230);
+}
+$('#bLike').onclick = () => decide('like');
+$('#bPass').onclick = () => decide('pass');
+$('#bStar').onclick = () => decide('star');
+document.addEventListener('keydown', e => {
+  if ($('#deckView').hidden || !$('#sheet').hidden) return;
+  if (e.key === 'ArrowRight') decide('like');
+  if (e.key === 'ArrowLeft') decide('pass');
+  if (e.key === 'ArrowUp') decide('star');
+});
+
+// ---------- pass reason toast ----------
+let toastTimer;
+function askReason(c) {
+  const t = $('#toast');
+  t.innerHTML = `Why not? <span style="opacity:.6">(optional)</span><div class="chips">${PASS_REASONS.map(r => `<button class="chip">${r}</button>`).join('')}</div>`;
+  t.hidden = false;
+  t.querySelectorAll('.chip').forEach(b => b.onclick = () => { logSwipe(c.code, 'pass', b.textContent); hideToast(); });
+  clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 3500);
+}
+function hideToast() { $('#toast').hidden = true; }
+
+let learnShown = 0;
+function learningNote() {
+  const n = liked.length;
+  const msg = n === 3 ? 'Learning your taste…' : n === 6 ? 'Deck tuned to your taste' : null;
+  if (!msg || learnShown === n) return;
+  learnShown = n;
+  const l = $('#learn'); l.textContent = msg; l.hidden = false;
+  setTimeout(() => l.hidden = true, 2200);
+}
+
+// ---------- matches ----------
+function updateCount() {
+  $('#matchCount').textContent = matches.length;
+  $('#matchesBtn').hidden = matches.length === 0 && $('#matches').hidden;
+}
+function topCounts(list, key, n) {
+  const m = {}; list.forEach(c => (c[key] || []).forEach(x => m[x] = (m[x] || 0) + 1));
+  return Object.entries(m).sort((a, b) => b[1] - a[1]).filter(([, v]) => v >= 2).slice(0, n).map(([k]) => k);
+}
+function showMatches() {
+  hideToast();
+  show('matches');
+  const stars = matches.filter(m => m.star).length;
+  $('#matchSub').textContent = matches.length
+    ? `${matches.length} liked${stars ? ` · ${stars} with ★ sample wish` : ''} · from ${seen.length} swipes`
+    : 'Nothing liked yet. Swipe right on materials you like.';
+  const drawn = [...topCounts(matches, 'material_types', 3), ...topCounts(matches, 'reasons', 4)];
+  const taste = $('#taste');
+  if (matches.length >= 3 && drawn.length) {
+    taste.hidden = false;
+    taste.innerHTML = `<b>You seem drawn to</b><div class="why">${drawn.map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>`;
+  } else taste.hidden = true;
+  $('#grid').innerHTML = matches.map((m, i) => `
+    <div class="m" data-i="${i}">
+      <div class="im" style="background-image:url('${IMG(m.image_path)}')">${m.star ? '<em>★ sample</em>' : ''}</div>
+      <div class="t">${esc(m.name)}<small>${esc(m.company || '')}</small></div>
+    </div>`).join('');
+  $('#grid').querySelectorAll('.m').forEach(n => n.onclick = () => openSheet(matches[+n.dataset.i]));
+}
+function openSheet(c) {
+  const { text, credit } = splitCredit(c.summary, c.company);
+  const s = $('#sheet');
+  s.innerHTML = `<div>
+    <div class="img" style="background-image:url('${IMG(c.image_path)}')">${credit ? `<span class="credit" style="position:absolute;right:8px;bottom:8px;font-size:11px;color:#fff;background:rgba(0,0,0,.45);padding:2px 7px;border-radius:6px">Image: ${esc(credit)}</span>` : ''}</div>
+    <div class="in">
+      <h2>${esc(c.name)}</h2><div class="note">${esc(c.company || 'Company product')}</div>
+      <div class="why" style="margin-top:10px">${(c.material_types || []).concat(c.reasons || []).slice(0, 6).map(x => `<span class="tag">${esc(x)}</span>`).join('')}</div>
+      <p>${esc(text)}</p>
+      ${facts(c)}
+      <div class="row">
+        <button class="pill" id="reqBtn">${c.star ? '★ Sample wished' : '★ I\'d like a sample'}</button>
+        <button class="pill" id="rmBtn">Remove</button>
+      </div>
+      <p class="note" id="reqNote" ${c.star ? '' : 'hidden'}>Noted. In the full version this would go to ${esc(c.company || 'the maker')} as a sample or introduction request.</p>
+      <div class="row"><button class="pill" id="closeBtn">Close</button></div>
+    </div></div>`;
+  s.hidden = false;
+  s.onclick = e => { if (e.target === s) s.hidden = true; };
+  $('#closeBtn').onclick = () => s.hidden = true;
+  $('#reqBtn').onclick = () => {
+    c.star = true; logSwipe(c.code, 'super', 'from matches'); save();
+    $('#reqBtn').textContent = '★ Sample wished'; $('#reqNote').hidden = false; showMatches();
+  };
+  $('#rmBtn').onclick = () => {
+    matches = matches.filter(m => m.code !== c.code); liked = liked.filter(x => x !== c.code);
+    save(); s.hidden = true; showMatches(); updateCount();
+  };
+}
+
+// ---------- brief ----------
+function buildBrief() {
+  document.querySelectorAll('#brief .chips').forEach(box => {
+    const g = box.dataset.group, single = box.hasAttribute('data-single');
+    box.innerHTML = OPTIONS[g].map(o => `<button class="chip" aria-pressed="false">${o}</button>`).join('');
+    box.querySelectorAll('.chip').forEach(b => {
+      const v = b.textContent;
+      const on = single ? (brief[g] === v || (v === 'Anything' && g === 'application' && brief[g] === null && brief._set)) : brief[g].includes(v);
+      b.setAttribute('aria-pressed', on);
+      b.onclick = () => {
+        if (single) {
+          const was = b.getAttribute('aria-pressed') === 'true';
+          box.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', 'false'));
+          b.setAttribute('aria-pressed', String(!was));
+          brief[g] = was || v === 'Anything' ? null : v;
+          if (g === 'application') brief._set = !was;
+        } else {
+          const p = b.getAttribute('aria-pressed') !== 'true';
+          b.setAttribute('aria-pressed', p);
+          brief[g] = p ? [...brief[g], v] : brief[g].filter(x => x !== v);
+        }
+      };
+    });
+  });
+}
+function briefText() {
+  const parts = [brief.application || 'Anything', brief.format, ...brief.priorities].filter(Boolean);
+  return parts.join(' · ');
+}
+function show(id) {
+  ['brief', 'deckView', 'matches'].forEach(s => $('#' + s).hidden = s !== id);
+  $('#matchesBtn').hidden = id === 'brief' && matches.length === 0;
+  $('#matchesBtn').firstChild.textContent = id === 'matches' ? 'Back to deck ' : 'Matches ';
+}
+function startDeck(reset) {
+  if (reset) { queue = []; exhausted = false; }
+  $('#briefText').textContent = briefText();
+  show('deckView'); save(); render();
+  if (queue.length < 3) fill();
+}
+$('#start').onclick = () => {
+  // a new brief keeps likes (taste) but shows unseen cards for the new brief
+  startDeck(true);
+};
+$('#editBrief').onclick = () => { buildBrief(); show('brief'); };
+$('#matchesBtn').onclick = () => $('#matches').hidden ? showMatches() : startDeck(false);
+$('#keepSwiping').onclick = () => startDeck(false);
+$('#restart').onclick = () => {
+  liked = []; passed = []; seen = []; matches = []; queue = []; exhausted = false;
+  brief = { application: null, format: null, priorities: [] };
+  save(); updateCount(); buildBrief(); show('brief');
+};
+$('#home').onclick = () => { buildBrief(); show('brief'); };
+
+buildBrief(); updateCount();
+if (seen.length) { $('#matchesBtn').hidden = false; }
+</script>
+</body>
+</html>
