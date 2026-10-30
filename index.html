@@ -75,9 +75,9 @@
     <form id="qform"><input id="q" type="text" maxlength="200" autocomplete="off" enterkeyhint="go" placeholder="e.g. acoustic panels for a studio"></form>
     <div class="chips" id="examples"></div>
     <button class="go" id="start">Start</button>
-    <div class="sample"><b>Temporary spheres:</b> the realistic ones (real scanned textures, lit like your oak example) replace these as soon as the texture sites are reachable. Sample set: 13 material spheres covering 106 grades (oak, softwood, plywood, cork, wool felt, polyester felt, woven fabrics, leather, concrete, aluminium, stainless steel, glass).</div>
+    <div class="sample"><b>Temporary spheres:</b> each material family (and form, e.g. felt, film, foam) has its own sphere. The images are simple drawings for now; realistic renders lit like a studio photo are coming.</div>
     <p class="note" style="margin-top:12px">Earlier versions: <a href="photos.html">with photos and questions</a> · <a href="classic.html">tick boxes</a></p>
-    <p class="note">Version: spheres · 30 Oct 16:30</p>
+    <p class="note">Version: spheres for all families · 30 Oct 17:00</p>
   </section>
 
   <section id="deckView" hidden>
@@ -105,7 +105,7 @@
 <script>
 const SUPABASE = 'https://bjkkqawalpuvsubnbodt.supabase.co';
 const KEY = 'sb_publishable_ZZN2JFwNHFbBLLjh2DE3cg_4t1YvQ7m';
-const SPHERE = (img) => `spheres/${img}.jpg`;
+const SPHERE = (img) => String(img || '').includes('/') ? img : `spheres/${img}.jpg`;
 const EXAMPLES = ['acoustic panels for a studio', 'soft fabric for a café chair', 'durable floor for a shop', 'lightweight frame for outdoor furniture', 'natural tabletop'];
 let q = '', liked = [], passed = [], seen = [], queue = [], loading = false, done = false, busy = false;
 const $ = (s) => document.querySelector(s);
@@ -141,7 +141,7 @@ function render() {
   const deck = $('#deck'); deck.querySelectorAll('.card,.empty').forEach((n) => n.remove());
   const sh = queue.slice(0, 2).reverse();
   if (!sh.length) { deck.insertAdjacentHTML('beforeend', loading ? '<div class="empty">Finding materials…</div>' :
-    `<div class="empty"><div>That's every sphere in the sample.<br><br><button class="pill dark" onclick="showResults()">See results</button></div></div>`); return; }
+    `<div class="empty"><div>That's every material that fits these words.<br><br><button class="pill dark" onclick="showResults()">See results</button></div></div>`); return; }
   sh.forEach((c, i) => { const el = document.createElement('div'); el.className = 'card' + (i === 0 && sh.length === 2 ? ' under' : '');
     el.innerHTML = `<div class="img" style="background-image:url('${SPHERE(c.image || c.key)}')"><span class="stamp like">COULD WORK</span><span class="stamp pass">NO</span></div>
       <div class="body"><h2>${esc(c.label)}</h2><div class="ex">${c.grades} grade${c.grades === 1 ? '' : 's'} · e.g. ${esc((c.examples || []).slice(0, 3).join(', '))}</div></div>`;
