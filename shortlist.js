@@ -49,7 +49,7 @@
     const back = here !== 'index.html' && S.hasMatches() ? '<a href="index.html#results">← Your matches</a>' : '';
     bar.innerHTML = back + `<a href="shortlist.html" class="${n ? 'on' : ''}" title="Your shortlist">♡ Shortlist${n ? ` (${n})` : ''}</a>`;
   }
-  const mount = () => { const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1; if (z < 1) bar.style.zoom = String(1 / z);
+  const mount = () => { const z = parseFloat(getComputedStyle(document.documentElement).zoom) || 1; if (z < 1) { bar.style.zoom = String(1 / z); bar.style.top = 'auto'; bar.style.bottom = '14px'; }
     document.body.appendChild(bar); paintBar(); detailButtons(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 
