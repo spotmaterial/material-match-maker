@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Spot Material · Match (sphere sample)</title>
+<style>
+  :root { --ink:#141414; --muted:#6b6b6b; --line:#e6e4df; --bg:#f6f5f1; --card:#fff; --like:#1f8a5b; --pass:#c4453a; --r:18px; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  body { display: flex; flex-direction: column; overscroll-behavior: none; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: calc(10px + env(safe-area-inset-top)) 18px 8px; }
+  .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; letter-spacing: -.02em; cursor: pointer; }
+  .logo i { width: 14px; height: 14px; border-radius: 50%; background: var(--ink); display: inline-block; }
+  .logo span { font-weight: 400; color: var(--muted); }
+  .pill { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 14px; cursor: pointer; color: var(--ink); }
+  .pill.dark { background: var(--ink); color: #fff; border-color: var(--ink); }
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; width: 100%; max-width: 480px; margin: 0 auto; }
+  section { padding: 6px 18px 24px; overflow-y: auto; }
+  h1 { font-size: 30px; line-height: 1.08; letter-spacing: -.03em; margin: 10px 0 8px; }
+  .lead { color: var(--muted); margin: 0 0 14px; }
+  #q { width: 100%; font: inherit; font-size: 17px; padding: 14px; border: 1.5px solid var(--ink); border-radius: 14px; background: var(--card); margin: 10px 0 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 12px; font: inherit; font-size: 13px; cursor: pointer; color: #444; }
+  .go { margin-top: 22px; width: 100%; padding: 15px; border: 0; border-radius: 14px; background: var(--ink); color: #fff; font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; }
+  .note { font-size: 12px; color: var(--muted); }
+  .sample { margin-top: 18px; padding: 10px 12px; background: #fff4dc; color: #6b4e00; border-radius: 10px; font-size: 13px; }
+
+  #deckView { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0 14px; }
+  .briefline { font-size: 13px; color: var(--muted); padding: 0 4px 8px; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .briefline button { background: none; border: 0; color: var(--ink); text-decoration: underline; font: inherit; cursor: pointer; padding: 0; }
+  #deck { position: relative; flex: 1; min-height: 380px; }
+  .card { position: absolute; inset: 0; background: var(--card); border-radius: var(--r); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.10), 0 1px 3px rgba(0,0,0,.08);
+    display: flex; flex-direction: column; touch-action: none; user-select: none; transition: transform .25s ease; }
+  .card.dragging { transition: none; } .card.under { transform: scale(.95) translateY(10px); }
+  .card .img { position: relative; flex: 1 1 66%; min-height: 0; background: #efede9 center/contain no-repeat; }
+  .stamp { position: absolute; top: 22px; padding: 4px 12px; border: 3px solid; border-radius: 8px; font-weight: 800; font-size: 22px; opacity: 0; transform: rotate(-12deg); background: rgba(255,255,255,.88); }
+  .stamp.like { left: 16px; color: var(--like); } .stamp.pass { right: 16px; color: var(--pass); transform: rotate(12deg); }
+  .card .body { padding: 14px 16px 16px; }
+  .card h2 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.01em; }
+  .card .ex { font-size: 13px; color: var(--muted); }
+  .actions { display: flex; justify-content: center; align-items: center; gap: 22px; padding: 12px 0 calc(12px + env(safe-area-inset-bottom)); }
+  .act { width: 62px; height: 62px; border-radius: 50%; border: 0; background: var(--card); box-shadow: 0 4px 14px rgba(0,0,0,.12); font-size: 26px; cursor: pointer; }
+  .act.small { width: 48px; height: 48px; font-size: 13px; color: var(--muted); }
+  .act.pass { color: var(--pass); } .act.like { color: var(--like); }
+  .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 30px; }
+  .bar { display: flex; justify-content: space-between; align-items: center; padding: 0 4px 10px; font-size: 13px; color: var(--muted); }
+
+  #results h1 { font-size: 26px; }
+  h3 { font-size: 17px; margin: 22px 0 10px; }
+  h3 small { font-weight: 400; color: var(--muted); font-size: 13px; }
+  .grp { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+  .grp-head { display: flex; align-items: center; gap: 12px; padding: 10px 12px; }
+  .grp-head img { width: 64px; height: 64px; border-radius: 10px; object-fit: cover; background: #efede9; }
+  .grp-head b { font-size: 16px; }
+  .grp ul { list-style: none; margin: 0; padding: 0 12px 10px 88px; }
+  .grp li { font-size: 14px; padding: 4px 0; border-top: 1px solid #f0eee9; }
+  .grp li small { color: var(--muted); }
+  .inn { list-style: none; margin: 0; padding: 0; }
+  .inn li { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .inn b { display: block; font-size: 15px; }
+  .inn small { color: var(--muted); display: block; margin: 1px 0 4px; }
+  .inn p { margin: 0; font-size: 13px; color: #333; }
+  .row { display: flex; gap: 10px; margin-top: 18px; } .row button { flex: 1; }
+  .spinner { color: var(--muted); padding: 30px 0; text-align: center; }
+</style>
+</head>
+<body>
+<header><div class="logo" id="home"><i></i>spot material <span>match</span></div></header>
+<main>
+  <section id="words">
+    <h1>What material are you looking for?</h1>
+    <p class="lead">Describe it in a few words. Then swipe through material spheres: right if it could work, left if not.</p>
+    <form id="qform"><input id="q" type="text" maxlength="200" autocomplete="off" enterkeyhint="go" placeholder="e.g. acoustic panels for a studio"></form>
+    <div class="chips" id="examples"></div>
+    <button class="go" id="start">Start</button>
+    <div class="sample"><b>Temporary spheres:</b> the realistic ones (real scanned textures, lit like your oak example) replace these as soon as the texture sites are reachable. Sample set: 13 material spheres covering 106 grades (oak, softwood, plywood, cork, wool felt, polyester felt, woven fabrics, leather, concrete, aluminium, stainless steel, glass).</div>
+    <p class="note" style="margin-top:12px"><a href="index.html">Back to the main matchmaker</a></p>
+  </section>
+
+  <section id="deckView" hidden>
+    <div class="briefline"><span id="briefText"></span><button id="change">Change</button></div>
+    <div class="bar"><span id="count"></span><button class="pill dark" id="seeBtn" hidden>See results</button></div>
+    <div id="deck"></div>
+    <div class="actions">
+      <button class="act pass" id="bPass" aria-label="No">✕</button>
+      <button class="act small" id="bSkip" aria-label="Not sure">Not<br>sure</button>
+      <button class="act like" id="bLike" aria-label="Could work">✓</button>
+    </div>
+  </section>
+
+  <section id="results" hidden>
+    <h1>Your materials</h1>
+    <div class="note" id="sub"></div>
+    <h3>Standard grades <small>· from the spheres you chose</small></h3>
+    <div id="grades"></div>
+    <h3>Innovations to look at <small>· closest to your choices</small></h3>
+    <ul class="inn" id="inns"></ul>
+    <div class="row"><button class="pill" id="again">Keep swiping</button><button class="pill" id="restart">New search</button></div>
+    <p class="note" style="margin-top:16px">Prototype. Spheres show the material only (generated, not product photos). Innovations are listed without images.</p>
+  </section>
+</main>
+<script>
+const SUPABASE = 'https://bjkkqawalpuvsubnbodt.supabase.co';
+const KEY = 'sb_publishable_ZZN2JFwNHFbBLLjh2DE3cg_4t1YvQ7m';
+const SPHERE = (img) => `spheres/${img}.jpg`;
+const EXAMPLES = ['acoustic panels for a studio', 'soft fabric for a café chair', 'durable floor for a shop', 'lightweight frame for outdoor furniture', 'natural tabletop'];
+let q = '', liked = [], passed = [], seen = [], queue = [], loading = false, done = false, busy = false;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const session = Math.random().toString(36).slice(2);
+
+async function match(action, extra = {}) {
+  const r = await fetch(`${SUPABASE}/functions/v1/match`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ action, q, ...extra }) });
+  const j = await r.json().catch(() => ({})); if (!r.ok || j.error) throw new Error(j.error || r.statusText); return j.data;
+}
+function show(id) { ['words', 'deckView', 'results'].forEach((s) => $('#' + s).hidden = s !== id); window.scrollTo(0, 0); }
+$('#examples').innerHTML = EXAMPLES.map((e) => `<button class="chip">${esc(e)}</button>`).join('');
+$('#examples').querySelectorAll('.chip').forEach((b) => b.onclick = () => { $('#q').value = b.textContent; });
+function start() { const v = $('#q').value.trim(); if (!v) { $('#q').focus(); return; } q = v; liked = []; passed = []; seen = []; queue = []; done = false;
+  $('#briefText').textContent = `“${q}”`; show('deckView'); update(); render(); fill(); }
+$('#start').onclick = start; $('#qform').onsubmit = (e) => { e.preventDefault(); start(); };
+$('#change').onclick = () => { $('#q').value = q; show('words'); };
+$('#home').onclick = () => show('words');
+
+async function fill() {
+  if (loading || done) return; loading = true;
+  try { const rows = await match('sphere_deck', { liked, passed, seen: [...seen, ...queue.map((c) => c.key)], limit: 4 });
+    const have = new Set([...seen, ...queue.map((c) => c.key)]); const fresh = rows.filter((r) => !have.has(r.key));
+    window._labels.push(...rows); if (!fresh.length) done = true; queue.push(...fresh); fresh.forEach((r) => { const i = new Image(); i.src = SPHERE(r.image || r.key); });
+  } catch (e) { $('#deck').innerHTML = `<div class="empty">Couldn't load. ${esc(e.message)}</div>`; }
+  loading = false; render();
+}
+function update() {
+  $('#count').textContent = liked.length ? `${liked.length} chosen` : 'Swipe right on anything that could work';
+  $('#seeBtn').hidden = liked.length < 1;
+}
+function render() {
+  const deck = $('#deck'); deck.querySelectorAll('.card,.empty').forEach((n) => n.remove());
+  const sh = queue.slice(0, 2).reverse();
+  if (!sh.length) { deck.insertAdjacentHTML('beforeend', loading ? '<div class="empty">Finding materials…</div>' :
+    `<div class="empty"><div>That's every sphere in the sample.<br><br><button class="pill dark" onclick="showResults()">See results</button></div></div>`); return; }
+  sh.forEach((c, i) => { const el = document.createElement('div'); el.className = 'card' + (i === 0 && sh.length === 2 ? ' under' : '');
+    el.innerHTML = `<div class="img" style="background-image:url('${SPHERE(c.image || c.key)}')"><span class="stamp like">COULD WORK</span><span class="stamp pass">NO</span></div>
+      <div class="body"><h2>${esc(c.label)}</h2><div class="ex">${c.grades} grade${c.grades === 1 ? '' : 's'} · e.g. ${esc((c.examples || []).slice(0, 3).join(', '))}</div></div>`;
+    deck.appendChild(el); });
+  drag(deck.lastElementChild);
+}
+function drag(el) {
+  let sx = 0, dx = 0, down = false; const L = el.querySelector('.stamp.like'), P = el.querySelector('.stamp.pass');
+  el.addEventListener('pointerdown', (e) => { down = true; sx = e.clientX; dx = 0; el.classList.add('dragging'); el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', (e) => { if (!down) return; dx = e.clientX - sx; el.style.transform = `translate(${dx}px,0) rotate(${dx / 18}deg)`; L.style.opacity = Math.max(0, Math.min(1, dx / 90)); P.style.opacity = Math.max(0, Math.min(1, -dx / 90)); });
+  const end = () => { if (!down) return; down = false; el.classList.remove('dragging'); const w = el.offsetWidth;
+    if (dx > w * .28) decide('like'); else if (dx < -w * .28) decide('pass'); else { el.style.transform = ''; L.style.opacity = P.style.opacity = 0; } };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+}
+function decide(dir) {
+  if (busy || !queue.length) return; busy = true;
+  const c = queue.shift(), el = $('#deck').lastElementChild;
+  if (el && el.classList.contains('card')) { const x = dir === 'like' ? 1.4 : dir === 'pass' ? -1.4 : 0; el.style.transform = dir === 'skip' ? 'translateY(-120%)' : `translate(${x * innerWidth}px,40px) rotate(${x * 22}deg)`; }
+  seen.push(c.key); if (dir === 'like') liked.push(c.key); if (dir === 'pass') passed.push(c.key);
+  if (dir !== 'skip' && queue.length > 1) queue = queue.slice(0, 1);
+  fetch(`${SUPABASE}/rest/v1/rpc/log_swipe`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ p_session: session, p_code: 'SPHERE:' + c.key, p_direction: dir === 'skip' ? 'pass' : dir, p_reason: dir === 'skip' ? 'not sure' : null, p_brief: { mode: 'spheres', q } }) }).catch(() => {});
+  update(); setTimeout(() => { busy = false; render(); if (queue.length < 2) fill(); }, 230);
+}
+$('#bLike').onclick = () => decide('like'); $('#bPass').onclick = () => decide('pass'); $('#bSkip').onclick = () => decide('skip');
+$('#seeBtn').onclick = () => showResults();
+$('#again').onclick = () => { show('deckView'); render(); fill(); };
+$('#restart').onclick = () => { $('#q').value = ''; show('words'); };
+
+async function showResults() {
+  show('results'); $('#sub').textContent = `“${q}” · ${liked.length} chosen`;
+  $('#grades').innerHTML = $('#inns').innerHTML = '<div class="spinner">Finding…</div>';
+  try {
+    const rows = await match('sphere_results', { liked, passed, limit: 12 });
+    const groups = new Map();
+    rows.filter((r) => r.kind === 'grade').forEach((r) => { if (!groups.has(r.sphere)) groups.set(r.sphere, []); groups.get(r.sphere).push(r); });
+    const labels = Object.fromEntries((window._labels || []).map((x) => [x.key, x.label]));
+    $('#grades').innerHTML = [...groups.entries()].map(([k, list]) => `<div class="grp"><div class="grp-head"><img src="${SPHERE(list[0].image || k)}" alt=""><b>${esc(labels[k] || list[0].subtitle)}</b></div>
+      <ul>${list.slice(0, 8).map((r) => `<li>${esc(r.subtitle)} · ${esc(r.name)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join('') || '<p class="note">Choose at least one sphere.</p>';
+    const strip = (t) => String(t || '').replace(/\s*Images?\s+[^.]{2,80}\.?\s*$/i, '');
+    const first = (t) => { t = strip(t); const i = t.indexOf('. '); return i > 40 && i < 220 ? t.slice(0, i + 1) : t.slice(0, 200) + (t.length > 200 ? '…' : ''); };
+    $('#inns').innerHTML = rows.filter((r) => r.kind === 'innovation').map((r) => `<li><b>${esc(r.name)}</b><small>${esc(r.subtitle)}</small><p>${esc(first(r.summary))}</p></li>`).join('');
+  } catch (e) { $('#grades').innerHTML = `<p class="note">Couldn't load: ${esc(e.message)}</p>`; $('#inns').innerHTML = ''; }
+}
+window._labels = [];
+</script>
+</body>
+</html>
