@@ -69,6 +69,8 @@
   .act.pass { color: var(--pass); } .act.like { color: var(--like); }
   .act:active { transform: scale(.94); }
   .hint { text-align: center; font-size: 12px; color: var(--muted); margin-top: -4px; padding-bottom: 6px; }
+  .nudge { font-size: 13px; background: #fff4dc; color: #6b4e00; border-radius: 10px; padding: 8px 12px; margin: 0 2px 10px; }
+  .nudge button { background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; color: inherit; cursor: pointer; }
   .empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 30px; }
 
   .toast { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom)); transform: translateX(-50%);
@@ -150,6 +152,7 @@
     <div class="briefline"><span id="briefText"></span><button id="editBrief">Change</button></div>
     <div class="meter"><span id="meterText">Learning what suits you</span><div class="bar"><i id="meterBar"></i></div>
       <button class="pill dark" id="seeBtn" hidden>See matches</button></div>
+    <div class="nudge" id="nudge" hidden>Nothing suiting so far? This brief may be narrow. <button id="nudgeBtn">Try a broader brief</button></div>
     <div id="deck"></div>
     <div class="actions">
       <button class="act pass" id="bPass" aria-label="Not suitable">✕</button>
@@ -192,6 +195,8 @@ const OPTIONS = {
   format: ['Sheet & plate','Textile','Fibre & wire','Film','Foam','3D shape','Profile & extrude','Slab'],
   priorities: ['Lower carbon','Plastic free','Compostable','Recycled','Renewable','Animal free','Circular']
 };
+const FORMAT_LABELS = { 'Textile': 'Fabric', 'Fibre & wire': 'Fibre, yarn & wire', 'Sheet & plate': 'Sheet & board', '3D shape': 'Moulded 3D shape', 'Profile & extrude': 'Profile & tube', 'Slab': 'Block & slab' };
+const label = (g, v) => g === 'format' ? (FORMAT_LABELS[v] || v) : v;
 const PASS_REASONS = ['Wrong look','Wrong properties','Not sustainable enough','Too expensive'];
 // When the deck is "sure enough"
 const READY = { likes: 4, swipes: 10 };
@@ -259,6 +264,8 @@ function updateMeter() {
   $('#meterBar').style.width = Math.round(p * 100) + '%';
   $('#meterText').textContent = ready ? 'Your matches are ready' : liked.length === 0 ? 'Learning what suits you' : `Learning… ${liked.length} suitable so far`;
   $('#seeBtn').hidden = !ready;
+  const stuck = liked.length === 0 && passed.length >= 6;
+  $('#nudge').hidden = !stuck;
 }
 
 // ---------- deck ----------
@@ -441,9 +448,9 @@ function openSheet(r) {
 function buildBrief() {
   document.querySelectorAll('#brief .chips').forEach(box => {
     const g = box.dataset.group, single = box.hasAttribute('data-single');
-    box.innerHTML = OPTIONS[g].map(o => `<button class="chip" aria-pressed="false">${o}</button>`).join('');
+    box.innerHTML = OPTIONS[g].map(o => `<button class="chip" aria-pressed="false" data-v="${o}">${label(g, o)}</button>`).join('');
     box.querySelectorAll('.chip').forEach(b => {
-      const v = b.textContent;
+      const v = b.dataset.v;
       b.setAttribute('aria-pressed', single ? brief[g] === v : brief[g].includes(v));
       b.onclick = () => {
         if (single) {
@@ -460,7 +467,7 @@ function buildBrief() {
     });
   });
 }
-const briefText = () => [brief.application || 'Any design', brief.format, ...brief.priorities].filter(Boolean).join(' · ');
+const briefText = () => [brief.application || 'Any design', brief.format && label('format', brief.format), ...brief.priorities].filter(Boolean).join(' · ');
 function show(id) {
   ['brief', 'deckView', 'results'].forEach(s => $('#' + s).hidden = s !== id);
   const t = $('#topBtn');
@@ -479,6 +486,7 @@ $('#start').onclick = () => {
   if (store.get('briefKey', null) !== key) { liked = []; passed = []; seen = []; momentShown = false; store.set('briefKey', key); }
   startDeck(true);
 };
+$('#nudgeBtn').onclick = () => { buildBrief(); show('brief'); };
 $('#editBrief').onclick = () => { buildBrief(); show('brief'); };
 $('#topBtn').onclick = () => $('#results').hidden ? ($('#brief').hidden ? showResults() : startDeck(false)) : startDeck(false);
 $('#seeBtn').onclick = () => showResults();
