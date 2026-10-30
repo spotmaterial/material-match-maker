@@ -2,7 +2,7 @@
 
 **index.html (v3, 30 Oct):** starts with a few words ("soft fabric for a café chair"), then up to 3 questions chosen from the tags that best split the materials found (plain wording in table `match_labels`, questions in `match_questions`; untick `ask` / `enabled` to hide one). Then the swipe deck and matches as below. Uses the Edge Function `match` (words → meaning, then `match_next_question`, `match_deck_words`, `match_suggest_words`).
 
-**Looks (30 Oct):** after the words, a grid of generic material "looks" (studio-lit spheres in `looks/`, drawn procedurally with Three.js (no product photos; renderer kept outside the repo)) narrows the search; chosen looks count strongly in the ranking. Which grades belong to which look comes from editable rules in Supabase (`match_look_rules`; after editing run `select match_build_looks();`).
+**Looks (30 Oct):** after the words, a grid of generic material "looks" (studio-lit spheres in `looks/`, drawn procedurally with `looks/render.html` + `looks/run.js` (Three.js, no product photos)) narrows the search; chosen looks count strongly in the ranking. Which grades belong to which look comes from editable rules in Supabase (`match_look_rules`; after editing run `select match_build_looks();`).
 
 **classic.html:** the earlier tick-box start.
 
