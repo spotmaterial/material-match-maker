@@ -77,7 +77,7 @@
     <button class="go" id="start">Start</button>
     <div class="sample"><b>Draft spheres:</b> each material family (and form, e.g. felt, film, foam) has its own sphere. All spheres now have draft studio renders; similar materials share one.</div>
     <p class="note" style="margin-top:12px">Earlier versions: <a href="photos.html">with photos and questions</a> · <a href="classic.html">tick boxes</a></p>
-    <p class="note">Version: spheres for all families · 30 Oct 17:00</p>
+    <p class="note">Version: 8 swipes, innovations first · 30 Oct 19:00</p>
   </section>
 
   <section id="deckView" hidden>
@@ -92,12 +92,12 @@
   </section>
 
   <section id="results" hidden>
-    <h1>Your materials</h1>
+    <h1>Your matches</h1>
     <div class="note" id="sub"></div>
+    <h3>Sustainable innovations <small>· for your words and the spheres you chose</small></h3>
+    <ul class="inn" id="inns"></ul>
     <h3>Standard grades <small>· from the spheres you chose</small></h3>
     <div id="grades"></div>
-    <h3>Innovations to look at <small>· closest to your choices</small></h3>
-    <ul class="inn" id="inns"></ul>
     <div class="row"><button class="pill" id="again">Keep swiping</button><button class="pill" id="restart">New search</button></div>
     <p class="note" style="margin-top:16px">Prototype. Spheres show the material only (generated, not product photos). Innovations are listed without images.</p>
   </section>
@@ -106,8 +106,9 @@
 const SUPABASE = 'https://bjkkqawalpuvsubnbodt.supabase.co';
 const KEY = 'sb_publishable_ZZN2JFwNHFbBLLjh2DE3cg_4t1YvQ7m';
 const SPHERE = (img) => String(img || '').includes('/') ? img : `spheres/${img}.jpg`;
+const ROUND = 8;   // cards per round of swiping, then straight to results (Rob 30 Oct: swiping went on too long)
 const EXAMPLES = ['acoustic panels for a studio', 'soft fabric for a café chair', 'durable floor for a shop', 'lightweight frame for outdoor furniture', 'natural tabletop'];
-let q = '', liked = [], passed = [], seen = [], queue = [], loading = false, done = false, busy = false;
+let q = '', liked = [], passed = [], seen = [], queue = [], loading = false, done = false, busy = false, roundEnd = ROUND;
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const session = Math.random().toString(36).slice(2);
@@ -119,7 +120,7 @@ async function match(action, extra = {}) {
 function show(id) { ['words', 'deckView', 'results'].forEach((s) => $('#' + s).hidden = s !== id); window.scrollTo(0, 0); }
 $('#examples').innerHTML = EXAMPLES.map((e) => `<button class="chip">${esc(e)}</button>`).join('');
 $('#examples').querySelectorAll('.chip').forEach((b) => b.onclick = () => { $('#q').value = b.textContent; });
-function start() { const v = $('#q').value.trim(); if (!v) { $('#q').focus(); return; } q = v; liked = []; passed = []; seen = []; queue = []; done = false;
+function start() { const v = $('#q').value.trim(); if (!v) { $('#q').focus(); return; } q = v; liked = []; passed = []; seen = []; queue = []; done = false; roundEnd = ROUND;
   $('#briefText').textContent = `“${q}”`; show('deckView'); update(); render(); fill(); }
 $('#start').onclick = start; $('#qform').onsubmit = (e) => { e.preventDefault(); start(); };
 $('#change').onclick = () => { $('#q').value = q; show('words'); };
@@ -134,8 +135,9 @@ async function fill() {
   loading = false; render();
 }
 function update() {
-  $('#count').textContent = liked.length ? `${liked.length} chosen` : 'Swipe right on anything that could work';
-  $('#seeBtn').hidden = liked.length < 1;
+  const n = Math.min(seen.length - (roundEnd - ROUND), ROUND);
+  $('#count').textContent = `${n} / ${ROUND}` + (liked.length ? ` · ${liked.length} chosen` : ' · swipe right on anything that could work');
+  $('#seeBtn').hidden = false;
 }
 function render() {
   const deck = $('#deck'); deck.querySelectorAll('.card,.empty').forEach((n) => n.remove());
@@ -164,23 +166,23 @@ function decide(dir) {
   if (dir !== 'skip' && queue.length > 1) queue = queue.slice(0, 1);
   fetch(`${SUPABASE}/rest/v1/rpc/log_swipe`, { method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ p_session: session, p_code: 'SPHERE:' + c.key, p_direction: dir === 'skip' ? 'pass' : dir, p_reason: dir === 'skip' ? 'not sure' : null, p_brief: { mode: 'spheres', q } }) }).catch(() => {});
-  update(); setTimeout(() => { busy = false; render(); if (queue.length < 2) fill(); }, 230);
+  update(); setTimeout(() => { busy = false; if (seen.length >= roundEnd) { showResults(); return; } render(); if (queue.length < 2) fill(); }, 230);
 }
 $('#bLike').onclick = () => decide('like'); $('#bPass').onclick = () => decide('pass'); $('#bSkip').onclick = () => decide('skip');
 $('#seeBtn').onclick = () => showResults();
-$('#again').onclick = () => { show('deckView'); render(); fill(); };
+$('#again').onclick = () => { roundEnd = seen.length + ROUND; show('deckView'); update(); render(); fill(); };
 $('#restart').onclick = () => { $('#q').value = ''; show('words'); };
 
 async function showResults() {
   show('results'); $('#sub').textContent = `“${q}” · ${liked.length} chosen`;
   $('#grades').innerHTML = $('#inns').innerHTML = '<div class="spinner">Finding…</div>';
   try {
-    const rows = await match('sphere_results', { liked, passed, limit: 12 });
+    const rows = await match('sphere_results', { liked, passed, limit: 30 });
     const groups = new Map();
     rows.filter((r) => r.kind === 'grade').forEach((r) => { if (!groups.has(r.sphere)) groups.set(r.sphere, []); groups.get(r.sphere).push(r); });
     const labels = Object.fromEntries((window._labels || []).map((x) => [x.key, x.label]));
     $('#grades').innerHTML = [...groups.entries()].map(([k, list]) => `<div class="grp"><div class="grp-head"><img src="${SPHERE(list[0].image || k)}" alt=""><b>${esc(labels[k] || list[0].subtitle)}</b></div>
-      <ul>${list.slice(0, 8).map((r) => `<li>${esc(r.subtitle)} · ${esc(r.name)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join('') || '<p class="note">Choose at least one sphere.</p>';
+      <ul>${list.slice(0, 8).map((r) => `<li>${esc(r.subtitle)} · ${esc(r.name)}</li>`).join('')}${list.length > 8 ? `<li><small>+ ${list.length - 8} more</small></li>` : ''}</ul></div>`).join('') || '<p class="note">Swipe right on a sphere to see its standard grades here.</p>';
     const strip = (t) => String(t || '').replace(/\s*Images?\s+[^.]{2,80}\.?\s*$/i, '');
     const first = (t) => { t = strip(t); const i = t.indexOf('. '); return i > 40 && i < 220 ? t.slice(0, i + 1) : t.slice(0, 200) + (t.length > 200 ? '…' : ''); };
     $('#inns').innerHTML = rows.filter((r) => r.kind === 'innovation').map((r) => `<li><b>${esc(r.name)}</b><small>${esc(r.subtitle)}</small><p>${esc(first(r.summary))}</p></li>`).join('');
