@@ -60,6 +60,8 @@
   .inn { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
   .inn li { overflow: hidden; padding: 0 !important; margin: 0 !important; }
   .inn .ph { aspect-ratio: 4 / 3; background: #eee center / cover no-repeat; }
+  .inn .ph.sw { background-color: #e9e8e4; background-size: contain; }
+  .phototoggle { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
   .inn .tx { padding: 9px 11px 11px; }
   .inn a.card-link { color: inherit; text-decoration: none; display: block; }
   .inn .acts { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 11px 11px; }
@@ -89,7 +91,7 @@
     <button class="go" id="start">Start</button>
     <div class="sample"><b>Draft swatches:</b> each material family (and form, e.g. felt, film, foam) has its own swatch, hung from one corner: rigid materials stay flat, soft ones drape. Renders are drafts; similar materials share one.</div>
     <p class="note" style="margin-top:12px">Earlier versions: <a href="photos.html">with photos and questions</a> · <a href="classic.html">tick boxes</a></p>
-    <p class="note">Version: hanging swatches · 30 Oct 22:45</p>
+    <p class="note">Version: generated innovation swatches (test) · 31 Oct 08:15</p>
   </section>
 
   <section id="deckView" hidden>
@@ -113,13 +115,20 @@
     <h3 id="simHead">Similar standard grades <small>· from swatches you didn't swipe away</small></h3>
     <div id="similar"></div>
     <div class="row"><button class="pill" id="again">Keep swiping</button><button class="pill" id="restart">New search</button></div>
-    <p class="note" style="margin-top:16px">Prototype. Swatches show the material only (generated, not product photos). Innovation images © the companies named.</p>
+    <p class="note" style="margin-top:16px">Prototype. Swatches show the material only (generated, not product photos)<span id="photoNote"></span>. <button class="phototoggle" onclick="togglePhotos()" id="photoBtn"></button></p>
   </section>
 </main>
 <script>
 const SUPABASE = 'https://bjkkqawalpuvsubnbodt.supabase.co';
 const KEY = 'sb_publishable_ZZN2JFwNHFbBLLjh2DE3cg_4t1YvQ7m';
 const IMG = (p) => `${SUPABASE}/storage/v1/object/public/images/${p}`;
+// Innovation images: generated swatches (first draft, 31 Oct) unless the viewer switches to the company photos
+const PHOTOS = (() => { try { return localStorage.getItem('spot_match_photos') === '1'; } catch (e) { return false; } })();
+const INNIMG = (r) => PHOTOS ? (r.image ? IMG(r.image) : '') : `swatches-innovations/${encodeURIComponent(r.code)}.jpg`;
+document.addEventListener('DOMContentLoaded', () => { const n = document.getElementById('photoNote'), b = document.getElementById('photoBtn');
+  if (n) n.textContent = PHOTOS ? '; innovation images © the companies named' : ', innovations too (first draft)';
+  if (b) b.textContent = PHOTOS ? 'Show generated swatches' : 'Compare with company photos'; });
+function togglePhotos() { try { localStorage.setItem('spot_match_photos', PHOTOS ? '0' : '1'); } catch (e) {} location.reload(); }
 const SPHERE = (img) => String(img || '').includes('/') ? img : `spheres/${img}.jpg`;
 const ROUND = 8;   // cards per round of swiping, then straight to results (Rob 30 Oct: swiping went on too long)
 const EXAMPLES = ['acoustic panels for a studio', 'soft fabric for a café chair', 'durable floor for a shop', 'lightweight frame for outdoor furniture', 'natural tabletop'];
@@ -203,7 +212,7 @@ async function showResults() {
     const strip = (t) => String(t || '').replace(/\s*Images?\s+[^.]{2,80}\.?\s*$/i, '');
     const first = (t) => { t = strip(t); const i = t.indexOf('. '); return i > 40 && i < 220 ? t.slice(0, i + 1) : t.slice(0, 200) + (t.length > 200 ? '…' : ''); };
     const innRows = rows.filter((r) => r.kind === 'innovation');
-    $('#inns').innerHTML = innRows.map((r) => `<li><a class="card-link" href="innovation.html?code=${encodeURIComponent(r.code)}">${r.image ? `<div class="ph" style="background-image:url('${IMG(r.image)}')" role="img" aria-label="${esc(r.name)}, image ${esc(r.subtitle)}"></div>` : ''}<div class="tx"><b>${esc(r.name)}</b><small>${esc(r.subtitle)}<span data-dev="${esc(r.code)}"></span></small><p>${esc(first(r.summary))}</p></div></a>
+    $('#inns').innerHTML = innRows.map((r) => `<li><a class="card-link" href="innovation.html?code=${encodeURIComponent(r.code)}">${INNIMG(r) ? `<div class="ph${PHOTOS ? '' : ' sw'}" style="background-image:url('${INNIMG(r)}')" role="img" aria-label="${esc(r.name)}, ${PHOTOS ? 'image ' + esc(r.subtitle) : 'generated swatch'}"></div>` : ''}<div class="tx"><b>${esc(r.name)}</b><small>${esc(r.subtitle)}<span data-dev="${esc(r.code)}"></span></small><p>${esc(first(r.summary))}</p></div></a>
       <div class="acts">${heart(r.code)}<span data-web="${esc(r.code)}"></span></div></li>`).join('');
     if (window.Shortlist && innRows.length) Shortlist.items(innRows.map((r) => r.code)).then((items) => items.forEach((it) => {
       const w = document.querySelector(`[data-web="${CSS.escape(it.code)}"]`); if (w && it.company_url) w.outerHTML = `<a class="heart web" href="${esc(it.company_url)}" target="_blank" rel="noopener">Visit company ↗</a>`;

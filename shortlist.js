@@ -27,7 +27,12 @@
     set: (codes) => write([...new Set(codes)]),
     onChange: (f) => listeners.push(f),
     items: (codes) => codes.length ? rpc('match_items', { p_codes: codes }) : Promise.resolve([]),
-    img: (it) => !it || !it.image ? '' : it.image_kind === 'storage' ? `${SUPABASE}/storage/v1/object/public/images/${it.image}` : it.image,
+    img: (it) => {
+      if (!it) return '';
+      let photos = false; try { photos = localStorage.getItem('spot_match_photos') === '1'; } catch (e) {}
+      if (it.kind === 'innovation' && !photos) return `swatches-innovations/${encodeURIComponent(it.code)}.jpg`;   // generated swatch (test, 31 Oct)
+      return !it.image ? '' : it.image_kind === 'storage' ? `${SUPABASE}/storage/v1/object/public/images/${it.image}` : it.image;
+    },
     page: (it) => (it.kind === 'innovation' ? 'innovation.html' : 'material.html') + '?code=' + encodeURIComponent(it.code),
     hasMatches: () => { try { return !!sessionStorage.getItem('spot_match_state'); } catch (e) { return false; } },
   };

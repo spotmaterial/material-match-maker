@@ -193,8 +193,11 @@
   function render(d) {
     document.title = d.name + ' · Spot Material';
     $('name').textContent = d.name;
-    const img = d.image_path ? SUPABASE_URL + '/storage/v1/object/public/images/' + d.image_path.split('/').map(encodeURIComponent).join('/') : '';
-    $('heroWrap').innerHTML = img ? `<img class="hero" src="${img}" alt="${esc(d.name)}">` : '<div class="hero" role="img" aria-label="No image yet"></div>';
+    let photos = false; try { photos = localStorage.getItem('spot_match_photos') === '1'; } catch (e) {}
+    const code = d.code || new URLSearchParams(location.search).get('code');
+    const img = !photos && code ? 'swatches-innovations/' + encodeURIComponent(code) + '.jpg'      // matchmaker test: generated swatch
+      : d.image_path ? SUPABASE_URL + '/storage/v1/object/public/images/' + d.image_path.split('/').map(encodeURIComponent).join('/') : '';
+    $('heroWrap').innerHTML = img ? `<img class="hero" src="${img}" alt="${esc(d.name)}${photos ? '' : ', generated swatch'}"${photos ? '' : ' style="object-fit:contain;background:#e9e8e4"'}>` : '<div class="hero" role="img" aria-label="No image yet"></div>';
     $('about').textContent = (d.summary || '').trim() || 'No description yet.';
 
     // Company name links to its homepage (Airtable "Company website")
