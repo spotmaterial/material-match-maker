@@ -68,6 +68,17 @@ elif kind == 'flecks':
                     pts = [(x + ox + s * np.cos(a + k * 2.1 + rng.random() * .6), y + oy + s * np.sin(a + k * 2.1 + rng.random() * .6)) for k in range(3 + int(rng.random() * 3))]
                     dr.polygon(pts, fill=col); dh.polygon(pts, fill=140)
     c = np.asarray(im).astype(np.float32) / 255; h = np.asarray(hm).astype(np.float32) / 255
+elif kind == 'tint':        # any existing src map recoloured: base, rgb, contrast, rough (set) / rough_add, rgb2 + mottle (two-tone clouds)
+    c, r, h = base(o['base'])
+    lum = c.mean(-1, keepdims=True); lum = lum / max(float(lum.mean()), 1e-6)
+    lum = 1 + (lum - 1) * o.get('contrast', 1.0)
+    col = np.array(o['rgb'], np.float32)[None, None] / 255
+    if 'rgb2' in o:
+        m = np.clip(.5 + .5 * pnoise(o.get('mfreq', 6)) * 2.2, 0, 1)[..., None] ** o.get('mpow', 1.5)
+        col = col * (1 - m * o.get('mottle', 1)) + np.array(o['rgb2'], np.float32)[None, None] / 255 * m * o.get('mottle', 1)
+    c = np.clip(lum * col, 0, 1)
+    if 'rough' in o: r = np.clip(o['rough'] + (r - r.mean()) * .3, 0, 1)
+    r = np.clip(r + o.get('rough_add', 0), 0, 1)
 elif kind == 'strips':
     c, r, h = base(o['base'])
     if 'hue_to' in o: c = recolour(c, o['hue_to'])
